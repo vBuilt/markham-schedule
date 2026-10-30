@@ -14,28 +14,24 @@ Everything lives at two addresses, which serve exactly the same thing:
 - **`https://markham.vincentlfilms.com`**: public, from anywhere, through a Cloudflare Tunnel.
 - **`http://vnas:8095`**: from the home network, or from anywhere on Tailscale.
 
-**Every link needs the access token.** Add `?token=…` to the address, or `&token=…` if it already
-has a `?`. Without it you get `401 Unauthorized`. The token isn't in this repo. Find it on vNas
-with `docker inspect markham-schedule | grep API_TOKEN`.
+It's open to anyone: no password or token needed.
 
-| What | Where (add the token) |
+| What | Where |
 |---|---|
-| Calendar web page | `https://markham.vincentlfilms.com/?token=…` |
-| Calendar feed for your calendar app | `https://markham.vincentlfilms.com/calendar.ics?category=…&centre=…&token=…` |
-| JSON API for apps | `https://markham.vincentlfilms.com/api/sessions?category=…&centre=…&token=…` |
-| Scrape status page: is it working, how each refresh went | `https://markham.vincentlfilms.com/status?token=…` |
-| Status as JSON | `https://markham.vincentlfilms.com/api/status?token=…` |
-| Health check (no token needed) | `https://markham.vincentlfilms.com/healthz` |
+| Calendar web page | `https://markham.vincentlfilms.com/` |
+| Calendar feed for your calendar app | `https://markham.vincentlfilms.com/calendar.ics?category=…&centre=…` |
+| JSON API for apps | `https://markham.vincentlfilms.com/api/sessions?category=…&centre=…` |
+| Scrape status page: is it working, how each refresh went | `https://markham.vincentlfilms.com/status` |
+| Status as JSON | `https://markham.vincentlfilms.com/api/status` |
+| Health check | `https://markham.vincentlfilms.com/healthz` |
 | Source code | <https://github.com/vBuilt/markham-schedule> |
 | Docker image | `ghcr.io/vbuilt/markham-schedule:latest` |
 
-Open the web page once with the token and it carries the token along: the **Subscribe** links and
-the **Scrape status** link include it. Anyone who has a link with the token can use it, so share
-links only with people you'd give access to.
+To require a token instead, see `API_TOKEN` under [Settings](#settings-environment-variables).
 
 ## The calendar web page
 
-Open `https://markham.vincentlfilms.com/?token=…` in any browser, on a laptop or a phone.
+Open `https://markham.vincentlfilms.com/` in any browser, on a laptop or a phone.
 
 - **Views:** Day, Week and List (the next two weeks). Use **Today** and **‹ ›** to move between dates.
   The keys `←` `→` `t` `d` `w` `l` do the same. Phones open in Day view.
@@ -65,8 +61,8 @@ Open `https://markham.vincentlfilms.com/?token=…` in any browser, on a laptop 
 The easiest way to get a link is the **Subscribe** button on the web page. To build one by hand:
 
 ```
-https://markham.vincentlfilms.com/calendar.ics?category=aquafit&centre=cornell&token=…
-https://markham.vincentlfilms.com/calendar.ics?category=aquafit&category=swimming&centre=angus%20glen&days=30&token=…
+https://markham.vincentlfilms.com/calendar.ics?category=aquafit&centre=cornell
+https://markham.vincentlfilms.com/calendar.ics?category=aquafit&category=swimming&centre=angus%20glen&days=30
 ```
 
 - `category` is a program and `centre` is a location. Both can be repeated.
@@ -110,13 +106,10 @@ Use the public link everywhere and the calendar refreshes wherever you are.
 - `limit`, which defaults to 500 and can go up to 5000.
 
 ```
-T=…   # the access token
-curl "https://markham.vincentlfilms.com/api/sessions?category=aquafit&centre=cornell&limit=3&token=$T"
-curl "https://markham.vincentlfilms.com/api/sessions?category=skating&from=2026-11-07&to=2026-11-08&token=$T"
-curl -H "Authorization: Bearer $T" https://markham.vincentlfilms.com/api/categories
+curl 'https://markham.vincentlfilms.com/api/sessions?category=aquafit&centre=cornell&limit=3'
+curl 'https://markham.vincentlfilms.com/api/sessions?category=skating&from=2026-11-07&to=2026-11-08'
+curl 'https://markham.vincentlfilms.com/api/categories'
 ```
-
-The token works either as `?token=…` or as an `Authorization: Bearer …` header.
 
 Each session looks like this:
 
@@ -149,7 +142,7 @@ come back as `{"error": "…"}`.
 
 ## Checking that it's healthy
 
-Open **`https://markham.vincentlfilms.com/status?token=…`** (also linked at the bottom of the calendar's filter panel). It shows:
+Open **`https://markham.vincentlfilms.com/status`** (also linked at the bottom of the calendar's filter panel). It shows:
 - an overall verdict: Healthy, Partly working, Behind, Failing or Starting up
 - when the last good refresh was and when the next is due
 - how many sessions have registration dates so far
@@ -177,7 +170,6 @@ start, stop and view logs, but their settings can't be edited there.
 ```
 docker run -d --name markham-schedule --restart unless-stopped \
   -p 8095:8080 --user 99:100 \
-  -e API_TOKEN=<token> \
   -v /mnt/user/appdata/markham-schedule:/data \
   ghcr.io/vbuilt/markham-schedule:latest
 ```
@@ -186,10 +178,8 @@ docker run -d --name markham-schedule --restart unless-stopped \
 - `--user 99:100` (Unraid's nobody:users) lets it write to the appdata folder.
 - The data is in `/mnt/user/appdata/markham-schedule/schedule.db`. You can delete it to start
   fresh; the next start re-scrapes, which takes about 4 minutes.
-- **Always keep `-e API_TOKEN=…` when recreating it.** Without it, the public address is open to
-  anyone. Read the current value first with `docker inspect markham-schedule | grep API_TOKEN`.
-- To change the token, recreate the container with a new value. Every saved link and calendar
-  subscription then needs the new token.
+- It runs without `API_TOKEN`, so the public address is open to anyone. Add
+  `-e API_TOKEN=<secret>` to require a token; every link then needs `?token=<secret>`.
 
 **`cloudflared`**, the Cloudflare Tunnel that publishes it:
 
@@ -211,9 +201,8 @@ automatically. To install it:
 ```
 ssh vnas
 docker pull ghcr.io/vbuilt/markham-schedule:latest
-docker inspect markham-schedule | grep API_TOKEN   # note the token
 docker rm -f markham-schedule
-docker run -d --name markham-schedule ...   # same command as above, same API_TOKEN
+docker run -d --name markham-schedule ...   # same command as above
 ```
 
 The saved schedule is kept. `GET /api/status` shows the running `version`.
@@ -230,7 +219,7 @@ Add them to the `docker run` command with `-e NAME=value`.
 | `REQUEST_DELAY` | `1s` | Pause between requests to Markham's site |
 | `HORIZON` | `2160h` | How far ahead to scrape (90 days) |
 | `RETENTION` | `336h` | How long past sessions are kept (14 days) |
-| `API_TOKEN` | empty (set on vNas) | If set, every request except `/healthz` needs `?token=…` or `Authorization: Bearer …` |
+| `API_TOKEN` | empty | If set, every request except `/healthz` needs `?token=<secret>` or `Authorization: Bearer <secret>`. The web page passes it along to its own links |
 | `LISTEN_ADDR` | `:8080` | Listen address inside the container |
 | `DATA_DIR` | `/data` | Where `schedule.db` lives |
 | `REG_LOOKUPS` | `600` | Maximum registration pages fetched per refresh, at `REQUEST_DELAY` spacing. `0` turns registration lookups off |
