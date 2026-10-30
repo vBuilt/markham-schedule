@@ -126,8 +126,8 @@ pattern: JSON endpoints under `/api/auth/…` and embedded pages.
 - `/login`: tabs **Sign in** and **Create account**; "Forgot your password?" link. After sign-in,
   return to the page the user came from (`?next=`, same-site paths only).
 - `/forgot`: email field (+ Turnstile).
-- `/reset?token=…`: new password twice.
-- `/verify?token=…`: confirms and says so, with a link back to the calendar.
+- `/reset?t=…`: new password twice.
+- `/verify?t=…`: confirms and says so, with a link back to the calendar.
 - `/account`: settings described above; sign out.
 - Calendar page top bar: **Sign in** button when signed out; when signed in, a small menu with the
   email, "Account settings", "Sign out". Unconfirmed users see a short "Confirm your email" notice
