@@ -171,18 +171,45 @@ func TestSignUpExistingUnconfirmedResendsConfirm(t *testing.T) {
 	if err := h.svc.SignUp(ctx, "a@example.com", pw, "bot", "1.1.1.1"); err != nil {
 		t.Fatal(err)
 	}
+	oldTok := h.lastToken(t, "/verify")
+	early := h.signIn(t, "a@example.com", pw)
 	h.mail.sent = nil
 	if err := h.svc.SignUp(ctx, "a@example.com", pw2, "bot", "1.1.1.1"); err != nil {
 		t.Fatalf("SignUp again = %v, want nil", err)
 	}
-	if len(h.mail.sent) != 1 {
-		t.Fatalf("sent %d emails, want 1", len(h.mail.sent))
+	if len(h.mail.sent) != 1 || h.mail.sent[0].subject != "Confirm your email" {
+		t.Fatalf("sent = %+v, want one confirm email", h.mail.sent)
 	}
-	h.lastToken(t, "/verify")
+	newTok := h.lastToken(t, "/verify")
+	if _, err := h.svc.SessionUser(ctx, early); err == nil {
+		t.Error("earlier session survived repeat sign-up")
+	}
+	if _, _, err := h.svc.SignIn(ctx, "a@example.com", pw, "2.2.2.2"); !errors.Is(err, ErrBadCredentials) {
+		t.Errorf("old password SignIn = %v, want ErrBadCredentials", err)
+	}
+	h.signIn(t, "a@example.com", pw2)
+	if err := h.svc.Confirm(ctx, oldTok); !errors.Is(err, ErrBadToken) {
+		t.Errorf("old confirm token = %v, want ErrBadToken", err)
+	}
+	if err := h.svc.Confirm(ctx, newTok); err != nil {
+		t.Errorf("new confirm token = %v", err)
+	}
+}
+
+func TestConfirmSignsOutEarlierSessions(t *testing.T) {
+	h := newHarness(t, "")
+	if err := h.svc.SignUp(ctx, "a@example.com", pw, "bot", "1.1.1.1"); err != nil {
+		t.Fatal(err)
+	}
+	tok := h.lastToken(t, "/verify")
+	early := h.signIn(t, "a@example.com", pw)
+	if err := h.svc.Confirm(ctx, tok); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.svc.SessionUser(ctx, early); err == nil {
+		t.Error("session from before confirmation still valid")
+	}
 	h.signIn(t, "a@example.com", pw)
-	if _, _, err := h.svc.SignIn(ctx, "a@example.com", pw2, "2.2.2.2"); !errors.Is(err, ErrBadCredentials) {
-		t.Errorf("new password SignIn = %v, want ErrBadCredentials", err)
-	}
 }
 
 func TestSignUpValidation(t *testing.T) {
@@ -501,5 +528,64 @@ func TestEmailLinksCarryAPIToken(t *testing.T) {
 	}
 	if strings.Contains(h2.mail.sent[0].text, "token=") {
 		t.Errorf("token in link without API token:\n%s", h2.mail.sent[0].text)
+	}
+}
+
+func TestPasswordChangesCancelResetLinks(t *testing.T) {
+	h := newHarness(t, "")
+	u := h.confirmedUser(t, "a@example.com", pw)
+	forgot := func() string {
+		t.Helper()
+		if err := h.svc.Forgot(ctx, "a@example.com", "bot", "1.1.1.1"); err != nil {
+			t.Fatal(err)
+		}
+		return h.lastToken(t, "/reset")
+	}
+	first, second := forgot(), forgot()
+	if _, err := h.svc.Reset(ctx, first, pw2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.svc.Reset(ctx, second, pw); !errors.Is(err, ErrBadToken) {
+		t.Errorf("second reset link after Reset = %v, want ErrBadToken", err)
+	}
+
+	h.clock.Advance(2 * time.Hour) // clear the per-address email limit
+	link := forgot()
+	keep := h.signIn(t, "a@example.com", pw2)
+	if err := h.svc.ChangePassword(ctx, u, pw2, pw, keep); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.svc.Reset(ctx, link, pw2); !errors.Is(err, ErrBadToken) {
+		t.Errorf("reset link after ChangePassword = %v, want ErrBadToken", err)
+	}
+}
+
+func TestChangePasswordRateLimited(t *testing.T) {
+	h := newHarness(t, "")
+	u := h.confirmedUser(t, "a@example.com", pw)
+	keep := h.signIn(t, "a@example.com", pw)
+	for i := 0; i < 5; i++ {
+		if err := h.svc.ChangePassword(ctx, u, "wrong password", pw2, keep); !errors.Is(err, ErrWrongPassword) {
+			t.Fatalf("failure %d = %v", i+1, err)
+		}
+	}
+	if err := h.svc.ChangePassword(ctx, u, pw, pw2, keep); !errors.Is(err, ErrRateLimited) {
+		t.Errorf("6th attempt = %v, want ErrRateLimited", err)
+	}
+	if err := h.svc.DeleteAccount(ctx, u, pw); !errors.Is(err, ErrRateLimited) {
+		t.Errorf("DeleteAccount while locked = %v, want ErrRateLimited", err)
+	}
+	h.clock.Advance(16 * time.Minute)
+	if err := h.svc.ChangePassword(ctx, u, pw, pw2, keep); err != nil {
+		t.Fatalf("after 16 min = %v", err)
+	}
+	// Success reset the counter: four more failures are not locked out.
+	for i := 0; i < 4; i++ {
+		if err := h.svc.ChangePassword(ctx, u, "wrong password", pw, keep); !errors.Is(err, ErrWrongPassword) {
+			t.Fatalf("post-success failure %d = %v", i+1, err)
+		}
+	}
+	if err := h.svc.ChangePassword(ctx, u, pw2, pw, keep); err != nil {
+		t.Errorf("5th attempt after reset = %v", err)
 	}
 }

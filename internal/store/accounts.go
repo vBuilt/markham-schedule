@@ -138,6 +138,12 @@ func (s *Store) CreateToken(ctx context.Context, tokenHash []byte, kind string, 
 	return err
 }
 
+// DeleteUserTokens removes all of the user's outstanding tokens of kind.
+func (s *Store) DeleteUserTokens(ctx context.Context, userID int64, kind string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM auth_tokens WHERE user_id=? AND kind=?`, userID, kind)
+	return err
+}
+
 // UseToken consumes a single-use token. ErrNotFound if it is missing, of
 // another kind, or expired at now.
 func (s *Store) UseToken(ctx context.Context, tokenHash []byte, kind string, now time.Time) (int64, error) {

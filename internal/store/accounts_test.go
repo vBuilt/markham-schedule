@@ -138,6 +138,35 @@ func TestUseTokenOnceAndKind(t *testing.T) {
 	}
 }
 
+func TestDeleteUserTokensByKind(t *testing.T) {
+	s, _ := openT(t)
+	ctx := context.Background()
+	exp := t0.Add(time.Hour)
+	for _, tk := range []struct {
+		h    string
+		kind string
+		uid  int64
+	}{{"r1", "reset", 5}, {"r2", "reset", 5}, {"c1", "confirm", 5}, {"r3", "reset", 6}} {
+		if err := s.CreateToken(ctx, []byte(tk.h), tk.kind, tk.uid, exp); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.DeleteUserTokens(ctx, 5, "reset"); err != nil {
+		t.Fatal(err)
+	}
+	for _, h := range []string{"r1", "r2"} {
+		if _, err := s.UseToken(ctx, []byte(h), "reset", t0); !errors.Is(err, ErrNotFound) {
+			t.Errorf("%s err = %v, want ErrNotFound", h, err)
+		}
+	}
+	if _, err := s.UseToken(ctx, []byte("c1"), "confirm", t0); err != nil {
+		t.Errorf("other kind removed: %v", err)
+	}
+	if _, err := s.UseToken(ctx, []byte("r3"), "reset", t0); err != nil {
+		t.Errorf("other user's token removed: %v", err)
+	}
+}
+
 func TestDeleteUserCascades(t *testing.T) {
 	s, _ := openT(t)
 	ctx := context.Background()

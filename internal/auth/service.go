@@ -7,6 +7,7 @@ import (
 	"html"
 	"log/slog"
 	"net/url"
+	"strconv"
 	"time"
 	"unicode/utf8"
 
@@ -28,6 +29,7 @@ type Store interface {
 	DeleteUserSessions(ctx context.Context, userID int64, except []byte) error
 	CreateToken(ctx context.Context, tokenHash []byte, kind string, userID int64, expires time.Time) error
 	UseToken(ctx context.Context, tokenHash []byte, kind string, now time.Time) (int64, error)
+	DeleteUserTokens(ctx context.Context, userID int64, kind string) error
 	PurgeAuth(ctx context.Context, now, unconfirmedBefore time.Time) (int64, error)
 }
 
@@ -74,9 +76,10 @@ type Service struct {
 	st Store
 	o  Options
 
-	emailLimit  *Limiter // emails sent per address
-	ipLimit     *Limiter // email-sending requests per IP
-	signInLimit *Limiter // sign-in attempts per email+IP
+	emailLimit   *Limiter // emails sent per address
+	ipLimit      *Limiter // email-sending requests per IP
+	signInLimit  *Limiter // sign-in attempts per email+IP
+	currentLimit *Limiter // current-password checks per user ID
 
 	dummyHash string
 }
@@ -104,12 +107,13 @@ func NewService(st Store, o Options) *Service {
 		panic(fmt.Sprintf("auth: dummy hash: %v", err))
 	}
 	return &Service{
-		st:          st,
-		o:           o,
-		emailLimit:  NewLimiter(3, time.Hour, o.Now),
-		ipLimit:     NewLimiter(10, time.Hour, o.Now),
-		signInLimit: NewLimiter(5, 15*time.Minute, o.Now),
-		dummyHash:   dummy,
+		st:           st,
+		o:            o,
+		emailLimit:   NewLimiter(3, time.Hour, o.Now),
+		ipLimit:      NewLimiter(10, time.Hour, o.Now),
+		signInLimit:  NewLimiter(5, 15*time.Minute, o.Now),
+		currentLimit: NewLimiter(5, 15*time.Minute, o.Now),
+		dummyHash:    dummy,
 	}
 }
 
@@ -146,9 +150,11 @@ func (s *Service) SignUp(ctx context.Context, email, password, botToken, ip stri
 	if err != nil {
 		return err
 	}
+	created := false
 	u, err := s.st.UserByEmail(ctx, email)
 	if errors.Is(err, store.ErrNotFound) {
 		u, err = s.st.CreateUser(ctx, email, hash, s.o.Now())
+		created = err == nil
 		if errors.Is(err, store.ErrEmailTaken) { // lost a race with another sign-up
 			u, err = s.st.UserByEmail(ctx, email)
 		}
@@ -159,6 +165,20 @@ func (s *Service) SignUp(ctx context.Context, email, password, botToken, ip stri
 	if u.Confirmed {
 		return s.sendTakenNotice(ctx, u)
 	}
+	if !created {
+		// Whoever signs up last owns the unconfirmed account: otherwise someone
+		// could pre-register a victim's address with a password they know and
+		// inherit the account when the victim confirms.
+		if err := s.st.SetPassword(ctx, u.ID, hash); err != nil {
+			return err
+		}
+		if err := s.st.DeleteUserSessions(ctx, u.ID, nil); err != nil {
+			return err
+		}
+		if err := s.st.DeleteUserTokens(ctx, u.ID, kindConfirm); err != nil {
+			return err
+		}
+	}
 	return s.sendConfirm(ctx, u)
 }
 
@@ -167,7 +187,12 @@ func (s *Service) Confirm(ctx context.Context, rawToken string) error {
 	if err != nil {
 		return err
 	}
-	return s.st.ConfirmUser(ctx, uid)
+	if err := s.st.ConfirmUser(ctx, uid); err != nil {
+		return err
+	}
+	// Sessions from before confirmation may belong to someone else who signed
+	// up with this address.
+	return s.st.DeleteUserSessions(ctx, uid, nil)
 }
 
 // ResendConfirm emails a fresh confirmation link; it does nothing for a user
@@ -281,6 +306,9 @@ func (s *Service) Reset(ctx context.Context, rawToken, newPassword string) (stri
 	if err := s.st.DeleteUserSessions(ctx, uid, nil); err != nil {
 		return "", err
 	}
+	if err := s.st.DeleteUserTokens(ctx, uid, kindReset); err != nil {
+		return "", err
+	}
 	return s.newSession(ctx, uid)
 }
 
@@ -297,6 +325,9 @@ func (s *Service) ChangePassword(ctx context.Context, u store.User, current, nex
 		return err
 	}
 	if err := s.st.SetPassword(ctx, u.ID, hash); err != nil {
+		return err
+	}
+	if err := s.st.DeleteUserTokens(ctx, u.ID, kindReset); err != nil {
 		return err
 	}
 	var keep []byte
@@ -329,8 +360,13 @@ func (s *Service) Cleanup(ctx context.Context) error {
 }
 
 // checkCurrent verifies password against the user's stored hash, read fresh
-// so a password changed in another session is respected.
+// so a password changed in another session is respected. Attempts are limited
+// per user like sign-in: 5 per 15 minutes, reset on success.
 func (s *Service) checkCurrent(ctx context.Context, userID int64, password string) error {
+	key := strconv.FormatInt(userID, 10)
+	if !s.currentLimit.Allow(key) {
+		return ErrRateLimited
+	}
 	u, err := s.st.UserByID(ctx, userID)
 	if err != nil {
 		return err
@@ -338,6 +374,7 @@ func (s *Service) checkCurrent(ctx context.Context, userID int64, password strin
 	if !CheckPassword(u.PasswordHash, password) {
 		return ErrWrongPassword
 	}
+	s.currentLimit.Reset(key)
 	return nil
 }
 
