@@ -104,18 +104,20 @@ func (h *HTTP) Register(mux *http.ServeMux, wrap func(http.HandlerFunc) http.Han
 	post("/api/auth/forgot", h.forgot)
 	post("/api/auth/reset", h.reset)
 	post("/api/auth/password", h.signedIn(h.password))
+	post("/api/auth/name", h.signedIn(h.setName))
 	post("/api/auth/delete", h.signedIn(h.deleteAccount))
 }
 
 type userJSON struct {
 	Email     string `json:"email"`
+	Name      string `json:"name"`
 	Confirmed bool   `json:"confirmed"`
 }
 
 func (h *HTTP) me(w http.ResponseWriter, r *http.Request) {
 	var uj *userJSON
 	if u, ok := UserFrom(r.Context()); ok {
-		uj = &userJSON{Email: u.Email, Confirmed: u.Confirmed}
+		uj = &userJSON{Email: u.Email, Name: u.Name, Confirmed: u.Confirmed}
 		// Pages ask for me on load; re-issuing the cookie here keeps its
 		// lifetime in step with the server's sliding session expiry.
 		h.setSession(w, r, sessionToken(r))
@@ -171,7 +173,7 @@ func (h *HTTP) signIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setSession(w, r, raw)
-	writeJSON(w, http.StatusOK, map[string]userJSON{"user": {Email: u.Email, Confirmed: u.Confirmed}})
+	writeJSON(w, http.StatusOK, map[string]userJSON{"user": {Email: u.Email, Name: u.Name, Confirmed: u.Confirmed}})
 }
 
 func (h *HTTP) signOut(w http.ResponseWriter, r *http.Request) {
@@ -219,6 +221,19 @@ func (h *HTTP) password(w http.ResponseWriter, r *http.Request, u store.User) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *HTTP) setName(w http.ResponseWriter, r *http.Request, u store.User) {
+	var in struct{ Name string }
+	if !readJSON(w, r, &in) {
+		return
+	}
+	name, err := h.s.SetName(r.Context(), u, in.Name)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"name": name})
 }
 
 func (h *HTTP) deleteAccount(w http.ResponseWriter, r *http.Request, u store.User) {
@@ -363,6 +378,8 @@ func (h *HTTP) fail(w http.ResponseWriter, r *http.Request, err error) {
 		code, msg = http.StatusBadRequest, "This link has expired or was already used."
 	case errors.Is(err, ErrBadCredentials):
 		code, msg = http.StatusUnauthorized, "Email or password is incorrect."
+	case errors.Is(err, ErrInvalidName):
+		code, msg = http.StatusBadRequest, "Name must be at most 60 characters."
 	case errors.Is(err, ErrWrongPassword):
 		code, msg = http.StatusUnauthorized, "Current password is incorrect."
 	case errors.Is(err, ErrRateLimited):

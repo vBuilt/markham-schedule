@@ -8,7 +8,9 @@ import (
 	"log/slog"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/vBuilt/markham-schedule/internal/store"
@@ -20,6 +22,7 @@ type Store interface {
 	UserByEmail(ctx context.Context, email string) (store.User, error)
 	UserByID(ctx context.Context, id int64) (store.User, error)
 	SetPassword(ctx context.Context, userID int64, hash string) error
+	SetName(ctx context.Context, userID int64, name string) error
 	ConfirmUser(ctx context.Context, userID int64) error
 	TouchUser(ctx context.Context, userID int64, now time.Time) error
 	DeleteUser(ctx context.Context, userID int64) error
@@ -43,6 +46,7 @@ var (
 	ErrRateLimited    = errors.New("too many attempts")
 	ErrBadToken       = errors.New("link is invalid or has expired")
 	ErrWrongPassword  = errors.New("current password is incorrect")
+	ErrInvalidName    = errors.New("name must be at most 60 characters")
 )
 
 const (
@@ -357,6 +361,23 @@ func (s *Service) ChangePassword(ctx context.Context, u store.User, current, nex
 		keep = HashToken(keepSession)
 	}
 	return s.st.DeleteUserSessions(ctx, u.ID, keep)
+}
+
+// MaxNameLen is the longest display name accepted, in characters.
+const MaxNameLen = 60
+
+// SetName saves the user's display name, trimmed; empty clears it.
+func (s *Service) SetName(ctx context.Context, u store.User, name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if utf8.RuneCountInString(name) > MaxNameLen || !utf8.ValidString(name) {
+		return "", ErrInvalidName
+	}
+	for _, r := range name {
+		if unicode.IsControl(r) {
+			return "", ErrInvalidName
+		}
+	}
+	return name, s.st.SetName(ctx, u.ID, name)
 }
 
 // DeleteAccount removes the user with their sessions and tokens.

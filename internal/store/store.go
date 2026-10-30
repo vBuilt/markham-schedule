@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 	_ "time/tzdata"
 
@@ -75,6 +76,13 @@ func Open(path string) (*Store, error) {
 		if _, err := db.Exec(q); err != nil {
 			db.Close()
 			return nil, fmt.Errorf("init sqlite: %w", err)
+		}
+	}
+	// Columns added after a table first shipped; re-running is a no-op.
+	for _, q := range []string{`ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''`} {
+		if _, err := db.Exec(q); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+			db.Close()
+			return nil, fmt.Errorf("migrate sqlite: %w", err)
 		}
 	}
 	return &Store{db: db, loc: loc}, nil

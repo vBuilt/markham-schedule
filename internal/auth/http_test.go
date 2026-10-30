@@ -99,6 +99,7 @@ func errorOf(t *testing.T, w *httptest.ResponseRecorder) string {
 type meBody struct {
 	User *struct {
 		Email     string `json:"email"`
+		Name      string `json:"name"`
 		Confirmed bool   `json:"confirmed"`
 	} `json:"user"`
 	TurnstileSiteKey string `json:"turnstile_site_key"`
@@ -432,5 +433,41 @@ func TestResend(t *testing.T) {
 	w := hh.do(t, "POST", "/api/auth/resend", nil, withCookie(raw))
 	if w.Code != http.StatusAccepted || len(hh.mail.sent) != n+1 {
 		t.Fatalf("resend: %d %s, mails %d -> %d", w.Code, w.Body, n, len(hh.mail.sent))
+	}
+}
+
+func TestSetName(t *testing.T) {
+	hh := newHTTPHarness(t)
+	if w := hh.do(t, "POST", "/api/auth/name", map[string]string{"name": "V"}); w.Code != http.StatusUnauthorized {
+		t.Fatalf("signed out: %d %s", w.Code, w.Body)
+	}
+	hh.confirmedUser(t, "a@example.com", pw)
+	raw := hh.signInHTTP(t, "a@example.com", pw)
+
+	w := hh.do(t, "POST", "/api/auth/name", map[string]string{"name": "  Vincent Liu  "}, withCookie(raw))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"name":"Vincent Liu"`) {
+		t.Fatalf("set: %d %s", w.Code, w.Body)
+	}
+	if m := hh.me(t, withCookie(raw)); m.User == nil || m.User.Name != "Vincent Liu" {
+		t.Fatalf("me = %+v", m)
+	}
+
+	for _, bad := range []string{strings.Repeat("é", MaxNameLen+1), "a\nb", "a\x00b"} {
+		w = hh.do(t, "POST", "/api/auth/name", map[string]string{"name": bad}, withCookie(raw))
+		if w.Code != http.StatusBadRequest || errorOf(t, w) != "Name must be at most 60 characters." {
+			t.Errorf("name %q: %d %s", bad, w.Code, w.Body)
+		}
+	}
+	if w = hh.do(t, "POST", "/api/auth/name", map[string]string{"name": strings.Repeat("é", MaxNameLen)}, withCookie(raw)); w.Code != http.StatusOK {
+		t.Errorf("60 chars: %d %s", w.Code, w.Body)
+	}
+	if w = hh.do(t, "POST", "/api/auth/name", map[string]string{"name": " "}, withCookie(raw)); w.Code != http.StatusOK {
+		t.Fatalf("clear: %d %s", w.Code, w.Body)
+	}
+	if m := hh.me(t, withCookie(raw)); m.User.Name != "" {
+		t.Fatalf("cleared name = %q", m.User.Name)
+	}
+	if w = hh.do(t, "POST", "/api/auth/name", map[string]string{"name": "X"}, withCookie(raw), withHeader("Origin", "https://evil.example")); w.Code != http.StatusForbidden {
+		t.Errorf("cross-site: %d", w.Code)
 	}
 }

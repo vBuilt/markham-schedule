@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -251,5 +253,51 @@ func TestTouchUser(t *testing.T) {
 	}
 	if _, err := s.UserByID(ctx, u.ID); err != nil {
 		t.Errorf("touched user purged: %v", err)
+	}
+}
+
+func TestSetName(t *testing.T) {
+	s, _ := openT(t)
+	ctx := context.Background()
+	u, _ := s.CreateUser(ctx, "a@x.com", "h", t0)
+	if u.Name != "" {
+		t.Fatalf("new user name = %q", u.Name)
+	}
+	if err := s.SetName(ctx, u.ID, "Vincent"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.UserByID(ctx, u.ID); got.Name != "Vincent" {
+		t.Fatalf("name = %q", got.Name)
+	}
+}
+
+// A database created before users had a name column gains it on Open, keeping
+// existing users; opening it again is harmless.
+func TestOpenAddsNameColumn(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "old.db")
+	db, err := sql.Open("sqlite", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`CREATE TABLE users(id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE,
+		  password_hash TEXT NOT NULL, confirmed INTEGER NOT NULL DEFAULT 0, created_unix INTEGER NOT NULL)`,
+		`INSERT INTO users(email, password_hash, created_unix) VALUES('a@x.com','h',1)`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	db.Close()
+	for i := 0; i < 2; i++ {
+		s, err := Open(p)
+		if err != nil {
+			t.Fatalf("open %d: %v", i, err)
+		}
+		u, err := s.UserByEmail(context.Background(), "a@x.com")
+		s.Close()
+		if err != nil || u.Name != "" {
+			t.Fatalf("open %d: user %+v, %v", i, u, err)
+		}
 	}
 }

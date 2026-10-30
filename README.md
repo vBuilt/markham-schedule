@@ -103,7 +103,7 @@ Use the public link everywhere and the calendar refreshes wherever you are.
 | `GET /api/runs` | History of recent refreshes, newest first (`limit`, default 50, max 300) |
 | `POST /api/refresh` | Starts a refresh now. Needs a signed-in, confirmed account (`401` signed out, `403` not confirmed). `202` started, `409` one is already running, `429` too soon after the last one (with `Retry-After` in seconds) |
 | `GET /status` | The scrape status page |
-| `GET /api/auth/me` | `{user: {email, confirmed} or null, turnstile_site_key}`; `user` is `null` when signed out |
+| `GET /api/auth/me` | `{user: {email, name, confirmed} or null, turnstile_site_key}`; `user` is `null` when signed out |
 | `POST /api/auth/signup` | `{email, password, turnstile}`: creates an account and emails a confirmation link. `202` |
 | `POST /api/auth/confirm` | `{t}`: confirms an email with the token from the link |
 | `POST /api/auth/resend` | Sends the confirmation email again. Needs sign-in |
@@ -112,6 +112,7 @@ Use the public link everywhere and the calendar refreshes wherever you are.
 | `POST /api/auth/forgot` | `{email, turnstile}`: emails a reset link. `202` |
 | `POST /api/auth/reset` | `{t, password}`: sets a new password from the emailed token and signs you in |
 | `POST /api/auth/password` | `{current, new}`: changes your password. Needs sign-in. `204` |
+| `POST /api/auth/name` | `{name}`: sets your display name (up to 60 characters; empty clears it). Needs sign-in. Returns `{name}` |
 | `POST /api/auth/delete` | `{password}`: deletes your account. Needs sign-in. `204` |
 | `GET /calendar.ics` | The calendar feed described above |
 | `GET /healthz` | `ok` if the process is up |
