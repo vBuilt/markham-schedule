@@ -38,6 +38,17 @@ CREATE INDEX IF NOT EXISTS user_sessions_user ON user_sessions(user_id);
 CREATE TABLE IF NOT EXISTS auth_tokens(
   token_hash BLOB PRIMARY KEY, kind TEXT NOT NULL, user_id INTEGER NOT NULL, expires_unix INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS auth_tokens_user ON auth_tokens(user_id);
+CREATE TABLE IF NOT EXISTS watches(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, session_id TEXT NOT NULL,
+  session_start_unix INTEGER NOT NULL, created_unix INTEGER NOT NULL,
+  emails_sent INTEGER NOT NULL DEFAULT 0, last_emailed_unix INTEGER, UNIQUE(user_id, session_id));
+CREATE INDEX IF NOT EXISTS watches_session ON watches(session_id);
+CREATE TABLE IF NOT EXISTS watch_stop_tokens(
+  token_hash BLOB PRIMARY KEY, watch_id INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS watch_stop_tokens_watch ON watch_stop_tokens(watch_id);
+CREATE TABLE IF NOT EXISTS watch_state(
+  session_id TEXT PRIMARY KEY, last_spots INTEGER NOT NULL DEFAULT 0, last_checked_unix INTEGER,
+  misses INTEGER NOT NULL DEFAULT 0, last_error TEXT NOT NULL DEFAULT '');
 `
 
 type Store struct {

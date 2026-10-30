@@ -90,13 +90,16 @@ func (s *Store) DeleteUser(ctx context.Context, userID int64) error {
 		for _, q := range []string{
 			`DELETE FROM user_sessions WHERE user_id=?`,
 			`DELETE FROM auth_tokens WHERE user_id=?`,
+			`DELETE FROM watch_stop_tokens WHERE watch_id IN (SELECT id FROM watches WHERE user_id=?)`,
+			`DELETE FROM watches WHERE user_id=?`,
 			`DELETE FROM users WHERE id=?`,
 		} {
 			if _, err := tx.ExecContext(ctx, q, userID); err != nil {
 				return err
 			}
 		}
-		return nil
+		_, err := tx.ExecContext(ctx, `DELETE FROM watch_state WHERE session_id NOT IN (SELECT session_id FROM watches)`)
+		return err
 	})
 }
 
