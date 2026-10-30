@@ -84,6 +84,23 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 		return status, fmt.Errorf("discover calendars: %w", err)
 	}
 
+	if len(cals) == 0 {
+		// Treat like a discovery failure: never wipe stored data on an empty listing.
+		status.Error = "no categories discovered"
+		if n, perr := s.st.Prune(ctx, now.Add(-s.cfg.Retention)); perr != nil {
+			s.log.Error("prune", "err", perr)
+		} else if n > 0 {
+			s.log.Info("pruned old sessions", "count", n)
+		}
+		if all, serr := s.st.Sessions(ctx, schedule.Filter{}); serr == nil {
+			status.Total = len(all)
+		}
+		if serr := s.st.SaveStatus(ctx, status); serr != nil {
+			s.log.Error("save status", "err", serr)
+		}
+		return status, errors.New(status.Error)
+	}
+
 	ln := now.In(s.cfg.Loc)
 	from := time.Date(ln.Year(), ln.Month(), ln.Day(), 0, 0, 0, 0, s.cfg.Loc)
 	to := now.Add(s.cfg.Horizon)
@@ -117,6 +134,12 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 				latest = sess.Start
 			}
 			sessions = append(sessions, sess)
+		}
+		if len(raws) > 0 && len(sessions) == 0 {
+			res.Error = fmt.Sprintf("all %d rows failed to convert", len(raws))
+			s.log.Error("no rows converted; keeping old data", "category", cal.Name, "rows", len(raws))
+			results = append(results, res)
+			continue
 		}
 		if err := s.st.ReplaceCategory(ctx, cal.Name, sessions); err != nil {
 			if ctx.Err() != nil {
@@ -156,12 +179,9 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 	var retErr error
 	if okCount > 0 {
 		status.LastSuccess = &now
-	} else if len(cals) > 0 {
+	} else {
 		status.Error = "all categories failed"
 		retErr = errors.New(status.Error)
-	} else {
-		// No categories discovered at all: nothing to scrape, treat as success.
-		status.LastSuccess = &now
 	}
 	if err := s.st.SaveStatus(ctx, status); err != nil {
 		s.log.Error("save status", "err", err)

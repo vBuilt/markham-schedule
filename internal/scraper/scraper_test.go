@@ -258,3 +258,40 @@ func TestRunWaitsWhenFresh(t *testing.T) {
 		t.Fatal("refreshed despite fresh data")
 	}
 }
+
+func TestRefreshZeroCalendarsKeepsData(t *testing.T) {
+	src := twoCats()
+	s, st := setup(t, src)
+	first, _ := s.Refresh(context.Background())
+	src.cals = nil
+	now = now.Add(time.Hour)
+	defer func() { now = now.Add(-time.Hour) }()
+	status, err := s.Refresh(context.Background())
+	if err == nil || status.Error != "no categories discovered" {
+		t.Fatalf("err=%v %+v", err, status)
+	}
+	if count(t, st) != 3 || !status.LastSuccess.Equal(*first.LastSuccess) || len(status.Categories) != 2 {
+		t.Fatalf("%d %+v", count(t, st), status)
+	}
+}
+
+func TestRefreshAllRowsBadKeepsCategory(t *testing.T) {
+	src := twoCats()
+	s, st := setup(t, src)
+	s.Refresh(context.Background())
+	src.classes["A"] = []perfectmind.RawClass{cls("x", "bad", "bad"), cls("y", "bad", "bad")}
+	status, err := s.Refresh(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := status.Categories[0]
+	if a.OK || a.Error != "all 2 rows failed to convert" || count(t, st) != 3 {
+		t.Fatalf("%+v count=%d", a, count(t, st))
+	}
+	// genuinely empty category is still a success
+	src.classes["A"] = nil
+	status, _ = s.Refresh(context.Background())
+	if !status.Categories[0].OK || count(t, st) != 1 {
+		t.Fatalf("%+v count=%d", status.Categories[0], count(t, st))
+	}
+}
