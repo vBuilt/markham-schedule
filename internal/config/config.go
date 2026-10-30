@@ -3,6 +3,8 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +16,15 @@ type Config struct {
 	Horizon, Retention                      time.Duration
 	// RegLookups caps registration-page fetches per refresh; 0 disables them.
 	RegLookups int
+
+	// BaseURL prefixes links in emails; empty means main picks a local default.
+	BaseURL string
+	// ResendAPIKey enables sending email through Resend; MailFrom is the sender.
+	ResendAPIKey, MailFrom string
+	// TurnstileSiteKey and TurnstileSecret enable Cloudflare Turnstile.
+	TurnstileSiteKey, TurnstileSecret string
+	// TrustedProxies are the proxy networks whose forwarded headers are believed.
+	TrustedProxies []netip.Prefix
 }
 
 // Load reads configuration using getenv (typically os.Getenv).
@@ -29,6 +40,28 @@ func Load(getenv func(string) string) (Config, error) {
 		DataDir:    str("DATA_DIR", "/data"),
 		APIToken:   getenv("API_TOKEN"),
 		LogLevel:   strings.ToLower(str("LOG_LEVEL", "info")),
+
+		BaseURL:          getenv("BASE_URL"),
+		ResendAPIKey:     getenv("RESEND_API_KEY"),
+		MailFrom:         str("MAIL_FROM", "Markham Drop-In <no-reply@vincentlfilms.com>"),
+		TurnstileSiteKey: getenv("TURNSTILE_SITE_KEY"),
+		TurnstileSecret:  getenv("TURNSTILE_SECRET"),
+	}
+	if c.BaseURL != "" {
+		if u, err := url.Parse(c.BaseURL); err != nil || u.Scheme == "" || u.Host == "" {
+			return Config{}, fmt.Errorf("BASE_URL: invalid value %q (want a full URL such as https://markham.example)", c.BaseURL)
+		}
+	}
+	for _, part := range strings.Split(str("TRUSTED_PROXIES", "172.16.0.0/12"), ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		p, err := netip.ParsePrefix(part)
+		if err != nil {
+			return Config{}, fmt.Errorf("TRUSTED_PROXIES: invalid CIDR %q", part)
+		}
+		c.TrustedProxies = append(c.TrustedProxies, p)
 	}
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":

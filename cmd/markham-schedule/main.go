@@ -19,6 +19,7 @@ import (
 	_ "time/tzdata"
 
 	"github.com/vBuilt/markham-schedule/internal/api"
+	"github.com/vBuilt/markham-schedule/internal/auth"
 	"github.com/vBuilt/markham-schedule/internal/config"
 	"github.com/vBuilt/markham-schedule/internal/perfectmind"
 	"github.com/vBuilt/markham-schedule/internal/schedule"
@@ -124,10 +125,32 @@ func run(cfg config.Config, once bool) int {
 	// Join the scraper before the deferred st.Close on every return path.
 	defer func() { stop(); <-scDone }()
 
+	mailer, bot := buildMailerAndBot(cfg, log)
+	publicURL := cfg.BaseURL
+	if publicURL == "" {
+		_, port, err := net.SplitHostPort(cfg.ListenAddr)
+		if err != nil {
+			log.Error("bad LISTEN_ADDR", "err", err)
+			return 1
+		}
+		publicURL = "http://localhost:" + port
+		log.Warn("BASE_URL not set: links in emails point at "+publicURL, "base_url", publicURL)
+	}
+	authSvc := auth.NewService(st, auth.Options{
+		BaseURL: publicURL, APIToken: cfg.APIToken, Mailer: mailer, Bot: bot, Log: log,
+	})
+	authHTTP := authSvc.Handler(auth.HTTPOptions{
+		BaseURL: publicURL, Trusted: cfg.TrustedProxies, TurnstileSiteKey: cfg.TurnstileSiteKey,
+	})
+	cleanDone := make(chan struct{})
+	go func() { defer close(cleanDone); cleanupLoop(ctx, authSvc, log) }()
+	// Join the cleanup loop before the deferred st.Close on every return path.
+	defer func() { stop(); <-cleanDone }()
+
 	h := api.New(st, api.Options{
 		Token: cfg.APIToken, CalName: "Markham Drop-In", Version: version,
 		Refresh: cfg.RefreshInterval, Retention: cfg.Retention, FeedDays: 60, Loc: loc,
-		Refresher: sc,
+		Refresher: sc, Auth: authHTTP,
 	})
 	srv := &http.Server{Addr: cfg.ListenAddr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, 1)
@@ -148,6 +171,39 @@ func run(cfg config.Config, once bool) int {
 		return 1
 	}
 	return 0
+}
+
+// buildMailerAndBot picks the real email and bot-check services when their
+// credentials are set, and loud stand-ins otherwise.
+func buildMailerAndBot(cfg config.Config, log *slog.Logger) (auth.Mailer, auth.BotCheck) {
+	var mailer auth.Mailer = &auth.ResendMailer{APIKey: cfg.ResendAPIKey, From: cfg.MailFrom}
+	if cfg.ResendAPIKey == "" {
+		log.Warn("RESEND_API_KEY not set: emails are written to the log, not sent")
+		mailer = auth.LogMailer{Log: log}
+	}
+	var bot auth.BotCheck = &auth.Turnstile{Secret: cfg.TurnstileSecret}
+	if cfg.TurnstileSecret == "" {
+		log.Warn("TURNSTILE_SECRET not set: bot protection is off")
+		bot = auth.NoBotCheck{}
+	}
+	return mailer, bot
+}
+
+// cleanupLoop purges expired sessions, tokens and stale accounts hourly until
+// ctx is done.
+func cleanupLoop(ctx context.Context, svc *auth.Service, log *slog.Logger) {
+	t := time.NewTicker(time.Hour)
+	defer t.Stop()
+	for {
+		if err := svc.Cleanup(ctx); err != nil && ctx.Err() == nil {
+			log.Error("auth cleanup", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }
 
 func printSummary(s schedule.Status, refreshErr error) int {
