@@ -682,6 +682,25 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   $("#prevBtn").onclick = () => { state.anchor = addDays(state.anchor, -step()); load(); };
   $("#nextBtn").onclick = () => { state.anchor = addDays(state.anchor, step()); load(); };
   $("#todayBtn").onclick = () => { state.anchor = dayKey(new Date()); load(); };
+  // Swipe left/right on the calendar for the next/previous day (or week). Starts
+  // near the screen edges are left to the browser's own back/forward gesture.
+  let touch = null;
+  $("#main").addEventListener("touchstart", (e) => {
+    const t = e.touches[0], edge = 24;
+    touch = e.touches.length === 1 && state.view !== "list" && t.clientX > edge && t.clientX < innerWidth - edge
+      ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+  }, { passive: true });
+  $("#main").addEventListener("touchend", (e) => {
+    if (!touch) return;
+    const t = e.changedTouches[0], dx = t.clientX - touch.x, dy = t.clientY - touch.y, quick = Date.now() - touch.at < 700;
+    touch = null;
+    if (!quick || Math.abs(dx) < 60 || Math.abs(dx) < 1.5 * Math.abs(dy)) return;
+    const dir = dx < 0 ? 1 : -1;
+    $(dir > 0 ? "#nextBtn" : "#prevBtn").click();
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
+      $("#main").animate([{ transform: `translateX(${dir * 48}px)`, opacity: 0.4 }, { transform: "none", opacity: 1 }], { duration: 200, easing: "ease-out" });
+  }, { passive: true });
+  $("#main").addEventListener("touchcancel", () => { touch = null; }, { passive: true });
   function setView(v) { state.view = v; persist(); load(); }
   document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
   $("#subBtn").onclick = openSubscribe;

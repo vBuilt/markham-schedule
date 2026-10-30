@@ -34,7 +34,8 @@ To require a token instead, see `API_TOKEN` under [Settings](#settings-environme
 Open `https://markham.vincentlfilms.com/` in any browser, on a laptop or a phone.
 
 - **Views:** Day, Week and List (the next two weeks). Use **Today** and **‹ ›** to move between dates.
-  The keys `←` `→` `t` `d` `w` `l` do the same. Phones open in Day view.
+  The keys `←` `→` `t` `d` `w` `l` do the same. Phones open in Day view; swipe left or right on the
+  calendar to go to the next or previous day (or week, in Week view).
 - **Filters:** tick programs and locations in the left panel (on a phone, tap **Filters**).
   Click **▶** next to a program to pick individual activities in it, e.g. only Lane Swim under
   Swimming, or only Pickleball under Sports & Activities. Use the
