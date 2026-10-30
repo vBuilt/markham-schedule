@@ -85,9 +85,14 @@ Anyone from the general public may sign up.
 - **Sign-up never signs you in.** You confirm by email, then sign in. The sign-up response is the
   same for new and existing addresses, and email is sent in the background (not awaited by the
   request), so response time doesn't reveal which case happened.
-- **Repeat sign-up for an address that exists but is unconfirmed** sends a fresh confirmation
-  email (the password is not changed). For a confirmed address it sends the "someone tried to
-  sign up; here's a reset link" note.
+- **Repeat sign-up for an address that exists but is unconfirmed** replaces the password with the
+  new one, signs out that account's sessions, cancels its outstanding confirmation links, and
+  sends a fresh confirmation email. (Otherwise someone could pre-register a victim's address with
+  a password they know and inherit the account when the victim confirms.) **Confirming** also
+  signs out every session that existed before. For a confirmed address, repeat sign-up sends the
+  "someone tried to sign up; here's a reset link" note and changes nothing.
+- **Changing or resetting the password** cancels any other outstanding reset links. The current
+  password checks in change-password and delete-account are rate limited like sign-in.
 - **Cleanup:** a background job deletes unconfirmed accounts older than 7 days and expired
   sessions and tokens, once an hour or so.
 - **Resend failures** are logged; the user sees the usual neutral message (no retry queue). The
