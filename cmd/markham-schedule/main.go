@@ -138,6 +138,7 @@ func run(cfg config.Config, once bool) int {
 	}
 	authSvc := auth.NewService(st, auth.Options{
 		BaseURL: publicURL, APIToken: cfg.APIToken, Mailer: mailer, Bot: bot, Log: log,
+		AdminEmails: cfg.AdminEmails,
 	})
 	authHTTP := authSvc.Handler(auth.HTTPOptions{
 		BaseURL: publicURL, Trusted: cfg.TrustedProxies, TurnstileSiteKey: cfg.TurnstileSiteKey,

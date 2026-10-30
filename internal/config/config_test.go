@@ -20,7 +20,7 @@ func TestLoadDefaults(t *testing.T) {
 	want := Config{
 		ListenAddr: ":8080", DataDir: "/data", APIToken: "", LogLevel: "info",
 		RefreshInterval: 3 * time.Hour, RequestDelay: time.Second,
-		Horizon: 2160 * time.Hour, Retention: 336 * time.Hour, RegLookups: 600,
+		Horizon: 2160 * time.Hour, Retention: 336 * time.Hour, RegLookups: 600, WatchInterval: time.Minute,
 		MailFrom:       "Markham Drop-In <no-reply@vincentlfilms.com>",
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("172.16.0.0/12")},
 	}
@@ -42,7 +42,7 @@ func TestLoadOverrides(t *testing.T) {
 		ListenAddr: "127.0.0.1:9000", DataDir: "/tmp/x", APIToken: "s3cret", LogLevel: "debug",
 		RefreshInterval: 30 * time.Minute, RequestDelay: 0,
 		Horizon: 48 * time.Hour, Retention: 0,
-		RegLookups:     50,
+		RegLookups: 50, WatchInterval: time.Minute,
 		MailFrom:       "Markham Drop-In <no-reply@vincentlfilms.com>",
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("172.16.0.0/12")},
 	}
@@ -127,5 +127,32 @@ func TestLoadTurnstileKeysArePaired(t *testing.T) {
 	c, err := Load(env(nil))
 	if err != nil || c.TurnstileSiteKey != "" || c.TurnstileSecret != "" {
 		t.Errorf("neither set = %+v, %v; want both empty", c, err)
+	}
+}
+
+func TestLoadWatchInterval(t *testing.T) {
+	c, err := Load(env(nil))
+	if err != nil || c.WatchInterval != time.Minute {
+		t.Fatalf("default = %v, %v; want 1m", c.WatchInterval, err)
+	}
+	if _, err := Load(env(map[string]string{"WATCH_INTERVAL": "20s"})); err == nil || !strings.Contains(err.Error(), "WATCH_INTERVAL") {
+		t.Fatalf("20s err = %v, want WATCH_INTERVAL error", err)
+	}
+	c, err = Load(env(map[string]string{"WATCH_INTERVAL": "45s"}))
+	if err != nil || c.WatchInterval != 45*time.Second {
+		t.Fatalf("45s = %v, %v", c.WatchInterval, err)
+	}
+}
+
+func TestLoadAdminEmails(t *testing.T) {
+	c, err := Load(env(map[string]string{"ADMIN_EMAILS": " A@x.com ,b@y.com"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"a@x.com", "b@y.com"}; !reflect.DeepEqual(c.AdminEmails, want) {
+		t.Fatalf("AdminEmails = %v, want %v", c.AdminEmails, want)
+	}
+	if _, err := Load(env(map[string]string{"ADMIN_EMAILS": "nope"})); err == nil || !strings.Contains(err.Error(), "ADMIN_EMAILS") {
+		t.Fatalf("invalid err = %v, want ADMIN_EMAILS error", err)
 	}
 }

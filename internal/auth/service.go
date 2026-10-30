@@ -74,6 +74,8 @@ type Options struct {
 	Log               *slog.Logger
 	Now               func() time.Time
 	Async             func(func()) // runs email sends; default go f()
+	// AdminEmails are normalised addresses that make a confirmed user an admin.
+	AdminEmails []string
 }
 
 // Service implements the account rules on top of a Store.
@@ -514,4 +516,17 @@ func (s *Service) send(to, subject, link, intro, outro string) {
 			s.o.Log.Error("send email failed", "subject", subject, "err", err)
 		}
 	})
+}
+
+// IsAdmin reports whether u is a confirmed user whose email is in AdminEmails.
+func (s *Service) IsAdmin(u store.User) bool {
+	if !u.Confirmed {
+		return false
+	}
+	for _, e := range s.o.AdminEmails {
+		if e == u.Email {
+			return true
+		}
+	}
+	return false
 }

@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/vBuilt/markham-schedule/internal/auth"
 )
 
 type Config struct {
@@ -26,6 +28,10 @@ type Config struct {
 	TurnstileSiteKey, TurnstileSecret string
 	// TrustedProxies are the proxy networks whose forwarded headers are believed.
 	TrustedProxies []netip.Prefix
+	// WatchInterval is how often watched sessions are polled for open spots.
+	WatchInterval time.Duration
+	// AdminEmails are normalised addresses whose confirmed accounts are admins.
+	AdminEmails []string
 }
 
 // Load reads configuration using getenv (typically os.Getenv).
@@ -94,6 +100,22 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if c.Retention, err = dur("RETENTION", "336h", true); err != nil {
 		return Config{}, err
+	}
+	if c.WatchInterval, err = dur("WATCH_INTERVAL", "1m", false); err != nil {
+		return Config{}, err
+	}
+	if c.WatchInterval < 30*time.Second {
+		return Config{}, fmt.Errorf("WATCH_INTERVAL: must be at least 30s, got %s", c.WatchInterval)
+	}
+	for _, part := range strings.Split(getenv("ADMIN_EMAILS"), ",") {
+		if strings.TrimSpace(part) == "" {
+			continue
+		}
+		e, ok := auth.NormalizeEmail(part)
+		if !ok {
+			return Config{}, fmt.Errorf("ADMIN_EMAILS: invalid email %q", strings.TrimSpace(part))
+		}
+		c.AdminEmails = append(c.AdminEmails, e)
 	}
 	c.RegLookups = 600
 	if v := getenv("REG_LOOKUPS"); v != "" {

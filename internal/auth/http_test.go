@@ -471,3 +471,21 @@ func TestSetName(t *testing.T) {
 		t.Errorf("cross-site: %d", w.Code)
 	}
 }
+
+func TestMeShowsIsAdmin(t *testing.T) {
+	hh := newHTTPHarness(t)
+	hh.svc.o.AdminEmails = []string{"boss@example.com"}
+	hh.confirmedUser(t, "boss@example.com", pw)
+	hh.confirmedUser(t, "other@example.com", pw)
+	for email, want := range map[string]bool{"boss@example.com": true, "other@example.com": false} {
+		w := hh.do(t, "GET", "/api/auth/me", nil, withCookie(hh.signIn(t, email, pw)))
+		var m struct {
+			User struct {
+				IsAdmin bool `json:"is_admin"`
+			} `json:"user"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &m); err != nil || m.User.IsAdmin != want {
+			t.Fatalf("%s: is_admin = %v (err %v), want %v; body %s", email, m.User.IsAdmin, err, want, w.Body)
+		}
+	}
+}

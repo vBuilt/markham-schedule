@@ -731,3 +731,28 @@ func TestServicePrune(t *testing.T) {
 		l.mu.Unlock()
 	}
 }
+
+func TestIsAdmin(t *testing.T) {
+	h := newHarness(t, "")
+	h.svc.o.AdminEmails = []string{"boss@example.com"}
+	if err := h.svc.SignUp(ctx, "boss@example.com", pw, "bot", "1.1.1.1"); err != nil {
+		t.Fatal(err)
+	}
+	unconfirmed, err := h.st.UserByEmail(ctx, "boss@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.svc.IsAdmin(unconfirmed) {
+		t.Fatal("unconfirmed admin email must not be admin")
+	}
+	if err := h.svc.Confirm(ctx, h.lastToken(t, "/verify")); err != nil {
+		t.Fatal(err)
+	}
+	confirmed, _ := h.st.UserByEmail(ctx, "boss@example.com")
+	if !h.svc.IsAdmin(confirmed) {
+		t.Fatal("confirmed admin email must be admin")
+	}
+	if h.svc.IsAdmin(h.confirmedUser(t, "other@example.com", pw)) {
+		t.Fatal("non-admin must not be admin")
+	}
+}
