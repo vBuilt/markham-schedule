@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/vBuilt/markham-schedule/internal/schedule"
+	"github.com/vBuilt/markham-schedule/internal/scraper"
 	"github.com/vBuilt/markham-schedule/internal/store"
 )
 
@@ -302,5 +303,65 @@ func TestStatusIncludesIntervalAndRegistrationCoverage(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Fatalf("missing %s in %s", want, body)
 		}
+	}
+}
+
+type fakeRefresher struct {
+	err        error
+	refreshing bool
+	at         time.Time
+	calls      int
+}
+
+func (f *fakeRefresher) RequestRefresh(context.Context) error { f.calls++; return f.err }
+func (f *fakeRefresher) Refreshing() bool                     { return f.refreshing }
+func (f *fakeRefresher) ManualRefreshAt(context.Context) (time.Time, error) {
+	return f.at, nil
+}
+
+func post(h http.Handler, target string) *httptest.ResponseRecorder {
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("POST", target, nil))
+	return w
+}
+
+func TestRefreshNow(t *testing.T) {
+	fr := &fakeRefresher{}
+	h := newH(&fakeStore{}, Options{Refresher: fr})
+	if w := post(h, "/api/refresh"); w.Code != 202 || fr.calls != 1 {
+		t.Fatal(w.Code, fr.calls, w.Body.String())
+	}
+	fr.err = scraper.ErrBusy
+	if w := post(h, "/api/refresh"); w.Code != 409 {
+		t.Fatal("busy:", w.Code)
+	}
+	fr.err = &scraper.TooSoonError{Wait: 90 * time.Second}
+	w := post(h, "/api/refresh")
+	if w.Code != 429 || w.Header().Get("Retry-After") != "90" || !strings.Contains(w.Body.String(), `"retry_after_seconds":90`) {
+		t.Fatal("too soon:", w.Code, w.Header(), w.Body.String())
+	}
+	if w := get(h, "/api/refresh"); w.Code != 405 {
+		t.Fatal("GET should be 405, got", w.Code)
+	}
+	if w := post(newH(&fakeStore{}, Options{}), "/api/refresh"); w.Code != 404 {
+		t.Fatal("no refresher should be 404, got", w.Code)
+	}
+	if w := post(newH(&fakeStore{}, Options{Token: "k", Refresher: fr}), "/api/refresh"); w.Code != 401 {
+		t.Fatal("should need the token", w.Code)
+	}
+}
+
+func TestStatusShowsManualRefresh(t *testing.T) {
+	at := fixedNow.Add(5 * time.Minute)
+	h := newH(&fakeStore{}, Options{Refresher: &fakeRefresher{refreshing: true, at: at}})
+	body := get(h, "/api/status").Body.String()
+	for _, want := range []string{`"refreshing":true`, `"refresh_now":true`, `"refresh_now_at":"` + at.Format(time.RFC3339)} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("missing %s in %s", want, body)
+		}
+	}
+	body = get(newH(&fakeStore{}, Options{}), "/api/status").Body.String()
+	if !strings.Contains(body, `"refresh_now":false`) || !strings.Contains(body, `"refresh_now_at":null`) {
+		t.Fatal(body)
 	}
 }

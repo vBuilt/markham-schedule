@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/vBuilt/markham-schedule/internal/ics"
 	"github.com/vBuilt/markham-schedule/internal/schedule"
+	"github.com/vBuilt/markham-schedule/internal/scraper"
 	"github.com/vBuilt/markham-schedule/internal/store"
 	"github.com/vBuilt/markham-schedule/internal/web"
 )
@@ -30,12 +32,22 @@ type Store interface {
 
 var _ Store = (*store.Store)(nil)
 
+// Refresher starts refreshes on request (the status page's Refresh now button).
+type Refresher interface {
+	RequestRefresh(ctx context.Context) error
+	Refreshing() bool
+	ManualRefreshAt(ctx context.Context) (time.Time, error)
+}
+
+var _ Refresher = (*scraper.Scraper)(nil)
+
 type Options struct {
 	Token, CalName, Version string
 	Refresh, Retention      time.Duration
 	FeedDays                int // default 60
 	Loc                     *time.Location
 	Now                     func() time.Time
+	Refresher               Refresher // nil disables POST /api/refresh
 }
 
 type server struct {
@@ -73,6 +85,9 @@ func New(st Store, o Options) http.Handler {
 	mux.HandleFunc("GET /api/status", s.auth(s.status))
 	mux.HandleFunc("GET /api/runs", s.auth(s.runs))
 	mux.HandleFunc("GET /status", s.auth(web.Status))
+	if o.Refresher != nil {
+		mux.HandleFunc("POST /api/refresh", s.auth(s.refreshNow))
+	}
 	return mux
 }
 
@@ -267,13 +282,46 @@ func (s *server) status(w http.ResponseWriter, r *http.Request) {
 			cov.InPerson++
 		}
 	}
+	var refreshing bool
+	var refreshAt *time.Time
+	if rf := s.o.Refresher; rf != nil {
+		refreshing = rf.Refreshing()
+		at, err := rf.ManualRefreshAt(r.Context())
+		if err != nil {
+			internalErr(w, r, err)
+			return
+		}
+		if !at.IsZero() {
+			refreshAt = &at
+		}
+	}
 	writeJSON(w, http.StatusOK, struct {
 		schedule.Status
 		Version                string     `json:"version"`
 		UpdatedAt              *time.Time `json:"updated_at"`
 		RefreshIntervalSeconds int64      `json:"refresh_interval_seconds"`
 		Registration           any        `json:"registration"`
-	}{st, s.o.Version, st.LastSuccess, int64(s.o.Refresh / time.Second), cov})
+		Refreshing             bool       `json:"refreshing"`
+		RefreshNow             bool       `json:"refresh_now"`    // POST /api/refresh is available
+		RefreshNowAt           *time.Time `json:"refresh_now_at"` // when it's next accepted; null = now
+	}{st, s.o.Version, st.LastSuccess, int64(s.o.Refresh / time.Second), cov, refreshing, s.o.Refresher != nil, refreshAt})
+}
+
+func (s *server) refreshNow(w http.ResponseWriter, r *http.Request) {
+	err := s.o.Refresher.RequestRefresh(r.Context())
+	var soon *scraper.TooSoonError
+	switch {
+	case err == nil:
+		writeJSON(w, http.StatusAccepted, map[string]string{"status": "started"})
+	case errors.Is(err, scraper.ErrBusy):
+		writeErr(w, http.StatusConflict, "a refresh is already running")
+	case errors.As(err, &soon):
+		secs := int64((soon.Wait + time.Second - 1) / time.Second)
+		w.Header().Set("Retry-After", strconv.FormatInt(secs, 10))
+		writeJSON(w, http.StatusTooManyRequests, map[string]any{"error": err.Error(), "retry_after_seconds": secs})
+	default:
+		internalErr(w, r, err)
+	}
 }
 
 func (s *server) calendar(w http.ResponseWriter, r *http.Request) {

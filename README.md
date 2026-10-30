@@ -97,6 +97,7 @@ Use the public link everywhere and the calendar refreshes wherever you are.
 | `GET /api/activities` | Activities in each program: `[{category, name, count}]` |
 | `GET /api/status` | Last attempt and last success, per-program results, total, version, refresh interval, registration-date coverage |
 | `GET /api/runs` | History of recent refreshes, newest first (`limit`, default 50, max 300) |
+| `POST /api/refresh` | Starts a refresh now. `202` started, `409` one is already running, `429` too soon after the last one (with `Retry-After` in seconds) |
 | `GET /status` | The scrape status page |
 | `GET /calendar.ics` | The calendar feed described above |
 | `GET /healthz` | `ok` if the process is up |
@@ -150,11 +151,18 @@ Open **`https://markham.vincentlfilms.com/status`** (also linked at the bottom o
   previous refresh, fetch time and any error
 - a chart and table of the last 100 refreshes: time taken, programs OK, sessions, registration
   lookups and errors
+- a **Refresh now** button that scrapes right away instead of waiting for the next scheduled
+  refresh. While it runs, the page checks every few seconds and updates when it's done. To go
+  easy on Markham's site, only one refresh runs at a time and the button stays off for 15 minutes
+  after a refresh finishes; it shows when it'll be available again. A manual refresh also
+  restarts the 3-hour schedule.
 
 The same information as JSON is at `/api/status` and `/api/runs`. In `/api/status`:
 - `last_success` is the last good refresh. It should be under 3 hours old.
 - `categories` lists each program, with `ok` and how many sessions it has.
 - `error` is only present when the last attempt had a problem.
+- `refreshing` is `true` while a refresh runs. `refresh_now_at` is when **Refresh now** will next
+  be accepted, or `null` if it can be used now.
 
 When a refresh fails, the previously saved data stays in place, and the service tries again in
 15 minutes. The page footer shows when the schedule was last updated.

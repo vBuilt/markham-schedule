@@ -127,6 +127,7 @@ func run(cfg config.Config, once bool) int {
 	h := api.New(st, api.Options{
 		Token: cfg.APIToken, CalName: "Markham Drop-In", Version: version,
 		Refresh: cfg.RefreshInterval, Retention: cfg.Retention, FeedDays: 60, Loc: loc,
+		Refresher: sc,
 	})
 	srv := &http.Server{Addr: cfg.ListenAddr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, 1)

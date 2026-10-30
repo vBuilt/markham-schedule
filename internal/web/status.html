@@ -30,6 +30,17 @@ header a { color: var(--ink-2); }
 .hero .state { font-size: 28px; font-weight: 700; color: var(--state); line-height: 1.1; }
 .hero p { margin: 6px 0 0; color: var(--ink-2); max-width: 75ch; }
 .hero p b { color: var(--ink); }
+.hero { display: flex; gap: 16px 24px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.hero .act { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.hero .act small { color: var(--ink-2); font-size: 13px; text-align: right; max-width: 28ch; }
+.btn { font: 700 15px/1 var(--font); color: #fff; background: var(--bar); border: 0; border-radius: 8px; padding: 11px 16px; cursor: pointer; }
+.btn:hover:not(:disabled) { filter: brightness(1.1); }
+.btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.btn:disabled { background: var(--grout); color: var(--ink-2); cursor: default; }
+.spin { display: inline-block; width: 11px; height: 11px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; margin-right: 7px; vertical-align: -1px; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+@media (max-width: 560px) { .hero .act { align-items: stretch; width: 100%; } .hero .act small { text-align: left; max-width: none; } }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 14px 0 22px; }
 .stat { background: var(--surface); border: 1px solid var(--grout); border-radius: 10px; padding: 12px 14px; }
 .stat .n { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -67,7 +78,7 @@ tr:last-child td { border-bottom: 0; }
   <h2>Recent refreshes <small>bars: time taken (red = failed), line: sessions stored</small></h2>
   <div class="card chart" id="chart"></div>
   <div class="card" style="margin-top:12px"><table id="runs"></table></div>
-  <p class="note">This page updates itself every minute.</p>
+  <p class="note">This page updates itself every minute, and every few seconds while a refresh is running.</p>
 </div>
 <script>
 (() => {
@@ -103,14 +114,15 @@ tr:last-child td { border-bottom: 0; }
     if (age > interval * 2.5) return { label: "Failing", color: "var(--bad)", text: `The last good refresh was <b>${ago(st.last_success)}</b>. Recent attempts are failing${st.error ? `: <b>${esc(st.error)}</b>` : ""}. The calendar still shows the last good data.` };
     if (age > interval * 1.5 || (latest && !latest.ok)) return { label: "Behind", color: "var(--warn)", text: `The last good refresh was <b>${ago(st.last_success)}</b>.${latest && !latest.ok ? ` The most recent attempt failed (${esc(latest.error)}); it retries in about 15 minutes.` : ""}` };
     if (failedCats) return { label: "Partly working", color: "var(--warn)", text: `The last refresh was <b>${ago(st.last_success)}</b>, but ${failedCats} program${failedCats > 1 ? "s" : ""} failed and kept their previous data.` };
-    return { label: "Healthy", color: "var(--good)", text: `Last refreshed <b>${ago(st.last_success)}</b> (${when(st.last_success)}). Next refresh due around <b>${(() => { const nx = new Date(last.getTime() + interval); return nx - Date.now() < 20 * 3600000 ? tFmt.format(nx) : dtFmt.format(nx); })()}</b>.` };
+    return { label: "Healthy", color: "var(--good)", text: `Last refreshed <b>${ago(st.last_success)}</b> (${when(st.last_success)}). Next refresh due around <b>${(() => { const nx = new Date(last.getTime() + interval); return nx - Date.now() < 20 * 3600000 ? tFmt.format(nx) : dtFmt.format(nx); })()}</b>` };
   }
 
   function renderStats(st, runs) {
     const h = health(st, runs);
     const hero = $("#hero");
     hero.style.setProperty("--state", h.color);
-    hero.innerHTML = `<div class="state">${h.label}</div><p>${h.text}</p>`;
+    hero.innerHTML = `<div><div class="state">${h.label}</div><p>${st.refreshing ? "<b>A refresh is running now.</b> It usually takes 4 to 15 minutes; this page updates when it finishes. " : ""}${h.text}</p></div>${refreshControl(st)}`;
+    $("#refreshBtn")?.addEventListener("click", refreshNow);
     $("#ver").textContent = st.version ? `Version ${st.version}` : "";
 
     const okRuns = runs.filter((r) => r.ok);
@@ -129,6 +141,28 @@ tr:last-child td { border-bottom: 0; }
       <div class="stat"><div class="n">${pct(reg.online + reg.in_person)}</div><div class="l">sessions with registration dates</div>
         <div class="cov"><span style="width:${pct(reg.online)};background:var(--good)"></span><span style="width:${pct(reg.in_person)};background:var(--ink-2)"></span></div>
         <div class="legend"><span><i style="background:var(--good)"></i>${n(reg.online)} online</span><span><i style="background:var(--ink-2)"></i>${n(reg.in_person)} in person</span><span><i style="background:var(--grout)"></i>${n(reg.unknown)} not looked up yet</span></div></div>`;
+  }
+
+  let note = "";
+  function refreshControl(st) {
+    if (!st.refresh_now) return "";
+    let label = "Refresh now", dis = false, sub = note || "Fetches the latest schedule from Markham's site.";
+    if (st.refreshing) { label = `<span class="spin"></span>Refreshing…`; dis = true; sub = ""; }
+    else if (st.refresh_now_at) { dis = true; sub = `Available again at ${tFmt.format(new Date(st.refresh_now_at))}; refreshes are spaced 15 minutes apart to go easy on Markham's site.`; }
+    return `<div class="act"><button class="btn" id="refreshBtn" type="button"${dis ? " disabled" : ""}>${label}</button>${sub ? `<small>${esc(sub)}</small>` : ""}</div>`;
+  }
+
+  async function refreshNow() {
+    const b = $("#refreshBtn");
+    b.disabled = true;
+    try {
+      const r = await fetch("/api/refresh" + (TOKEN ? "?token=" + encodeURIComponent(TOKEN) : ""), { method: "POST" });
+      const body = await r.json().catch(() => ({}));
+      note = r.ok || r.status === 409 ? "" : (body.error ? body.error.charAt(0).toUpperCase() + body.error.slice(1) + "." : `Couldn't start a refresh (HTTP ${r.status}).`);
+    } catch (e) {
+      note = `Couldn't start a refresh: ${e.message}.`;
+    }
+    load();
   }
 
   function renderCats(runs) {
@@ -176,17 +210,24 @@ tr:last-child td { border-bottom: 0; }
     $("#chart").innerHTML = svg;
   }
 
+  let timer, wasRefreshing = false;
   async function load() {
+    clearTimeout(timer);
+    let next = 60000;
     try {
       const [st, runs] = await Promise.all([api("/api/status"), api("/api/runs?limit=100")]);
+      if (wasRefreshing && !st.refreshing) note = "";
+      wasRefreshing = st.refreshing;
+      if (st.refreshing) next = 5000;
       renderStats(st, runs); renderCats(runs); renderChart(runs); renderRuns(runs);
     } catch (e) {
       $("#hero").style.setProperty("--state", "var(--bad)");
       $("#hero").innerHTML = `<div class="state">Can't reach the service</div><p>${esc(e.message)}. Check that the container is running on vNas.</p>`;
     }
+    timer = setTimeout(tick, next);
   }
+  function tick() { if (document.hidden) timer = setTimeout(tick, 5000); else load(); }
   load();
-  setInterval(() => { if (!document.hidden) load(); }, 60000);
 })();
 </script>
 </body>

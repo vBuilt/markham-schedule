@@ -604,3 +604,90 @@ func TestRefreshRecordsRuns(t *testing.T) {
 		t.Fatalf("failed run %+v", bad)
 	}
 }
+
+func TestRequestRefreshRunsNow(t *testing.T) {
+	src := twoCats()
+	s, st, clk := setup(t, src)
+	s.cfg.Interval = time.Hour
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// Fresh data, so Run would otherwise wait an hour.
+	if _, err := s.Refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+	clk.Add(16 * time.Minute) // past the default 15m cooldown
+	done := make(chan struct{}, 4)
+	s.onRefresh = func() { done <- struct{}{} }
+	go s.Run(ctx)
+	if err := s.RequestRefresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("requested refresh did not run")
+	}
+	if runs, _ := st.Runs(ctx, 0); len(runs) != 2 {
+		t.Fatalf("want 2 runs, got %d", len(runs))
+	}
+}
+
+func TestRequestRefreshCooldown(t *testing.T) {
+	s, _, clk := setup(t, twoCats())
+	ctx := context.Background()
+	if _, err := s.Refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+	clk.Add(5 * time.Minute)
+	err := s.RequestRefresh(ctx)
+	var soon *TooSoonError
+	if !errors.As(err, &soon) || soon.Wait != 10*time.Minute {
+		t.Fatalf("want TooSoonError{10m}, got %v", err)
+	}
+	if at, _ := s.ManualRefreshAt(ctx); !at.Equal(clk.Now().Add(10 * time.Minute)) {
+		t.Fatalf("ManualRefreshAt = %v", at)
+	}
+	clk.Add(10 * time.Minute)
+	if err := s.RequestRefresh(ctx); err != nil {
+		t.Fatalf("after cooldown: %v", err)
+	}
+	if !s.Refreshing() {
+		t.Fatal("a queued refresh should count as refreshing")
+	}
+	if err := s.RequestRefresh(ctx); !errors.Is(err, ErrBusy) {
+		t.Fatalf("second request while queued: want ErrBusy, got %v", err)
+	}
+}
+
+func TestRequestRefreshBusyWhileRunning(t *testing.T) {
+	src := twoCats()
+	src.block = make(chan struct{})
+	src.entered = make(chan struct{}, 2)
+	s, _, _ := setup(t, src)
+	done := make(chan error, 1)
+	go func() { _, err := s.Refresh(context.Background()); done <- err }()
+	<-src.entered
+	if !s.Refreshing() {
+		t.Fatal("Refreshing should be true during a refresh")
+	}
+	if err := s.RequestRefresh(context.Background()); !errors.Is(err, ErrBusy) {
+		t.Fatalf("want ErrBusy, got %v", err)
+	}
+	close(src.block)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if s.Refreshing() {
+		t.Fatal("Refreshing should be false afterwards")
+	}
+}
+
+func TestRequestRefreshNoHistory(t *testing.T) {
+	s, _, _ := setup(t, twoCats())
+	if at, err := s.ManualRefreshAt(context.Background()); err != nil || !at.IsZero() {
+		t.Fatalf("no runs yet: want zero time, got %v %v", at, err)
+	}
+	if err := s.RequestRefresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}

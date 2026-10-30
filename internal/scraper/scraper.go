@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/vBuilt/markham-schedule/internal/perfectmind"
@@ -26,6 +27,14 @@ var _ Source = (*perfectmind.Client)(nil)
 
 var ErrBusy = errors.New("refresh already running")
 
+// TooSoonError means a requested refresh was refused because the last one
+// finished less than ManualCooldown ago.
+type TooSoonError struct{ Wait time.Duration }
+
+func (e *TooSoonError) Error() string {
+	return fmt.Sprintf("the last refresh finished too recently; try again in %s", e.Wait.Round(time.Second))
+}
+
 type Config struct {
 	Horizon, Retention, Interval time.Duration
 	// RetryInterval is the delay before the next attempt after a failed
@@ -37,8 +46,11 @@ type Config struct {
 	// RegMaxAge is how long a course's registration rule is trusted before it
 	// is fetched again. Zero means 14 days.
 	RegMaxAge time.Duration
-	Loc       *time.Location
-	Now       func() time.Time
+	// ManualCooldown is the minimum time after a refresh finishes before
+	// RequestRefresh will start another. Zero means 15m.
+	ManualCooldown time.Duration
+	Loc            *time.Location
+	Now            func() time.Time
 }
 
 type Scraper struct {
@@ -48,7 +60,9 @@ type Scraper struct {
 	log *slog.Logger
 
 	mu        sync.Mutex
-	onRefresh func() // test hook, called after each Run-initiated refresh
+	running   atomic.Bool
+	trigger   chan struct{} // RequestRefresh -> Run; capacity 1
+	onRefresh func()        // test hook, called after each Run-initiated refresh
 }
 
 func New(src Source, st *store.Store, cfg Config, log *slog.Logger) *Scraper {
@@ -64,6 +78,9 @@ func New(src Source, st *store.Store, cfg Config, log *slog.Logger) *Scraper {
 	if cfg.RegMaxAge <= 0 {
 		cfg.RegMaxAge = 14 * 24 * time.Hour
 	}
+	if cfg.ManualCooldown <= 0 {
+		cfg.ManualCooldown = 15 * time.Minute
+	}
 	if cfg.Loc == nil {
 		loc, err := time.LoadLocation("America/Toronto")
 		if err != nil {
@@ -74,7 +91,7 @@ func New(src Source, st *store.Store, cfg Config, log *slog.Logger) *Scraper {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Scraper{src: src, st: st, cfg: cfg, log: log}
+	return &Scraper{src: src, st: st, cfg: cfg, log: log, trigger: make(chan struct{}, 1)}
 }
 
 // Refresh runs one scrape and records it in the run history for the status page.
@@ -83,6 +100,8 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 		return schedule.Status{}, ErrBusy
 	}
 	defer s.mu.Unlock()
+	s.running.Store(true)
+	defer s.running.Store(false)
 
 	run := &schedule.Run{Started: s.cfg.Now()}
 	status, err := s.refresh(ctx, run)
@@ -284,6 +303,47 @@ func (s *Scraper) refresh(ctx context.Context, run *schedule.Run) (schedule.Stat
 	return status, retErr
 }
 
+// Refreshing reports whether a refresh is running or has been requested.
+func (s *Scraper) Refreshing() bool {
+	return s.running.Load() || len(s.trigger) > 0
+}
+
+// ManualRefreshAt returns when RequestRefresh will next be accepted, or the
+// zero time if it would be accepted now.
+func (s *Scraper) ManualRefreshAt(ctx context.Context) (time.Time, error) {
+	runs, err := s.st.Runs(ctx, 1)
+	if err != nil || len(runs) == 0 {
+		return time.Time{}, err
+	}
+	at := runs[0].Finished.Add(s.cfg.ManualCooldown)
+	if !at.After(s.cfg.Now()) {
+		return time.Time{}, nil
+	}
+	return at, nil
+}
+
+// RequestRefresh asks Run to refresh now. It returns ErrBusy if a refresh is
+// running or already requested, and a *TooSoonError during the cooldown.
+func (s *Scraper) RequestRefresh(ctx context.Context) error {
+	if s.Refreshing() {
+		return ErrBusy
+	}
+	at, err := s.ManualRefreshAt(ctx)
+	if err != nil {
+		return err
+	}
+	if !at.IsZero() {
+		return &TooSoonError{Wait: at.Sub(s.cfg.Now())}
+	}
+	select {
+	case s.trigger <- struct{}{}:
+		s.log.Info("refresh requested")
+		return nil
+	default:
+		return ErrBusy
+	}
+}
+
 // retryDelay is the wait after a failed refresh: min(RetryInterval, Interval).
 func (s *Scraper) retryDelay() time.Duration {
 	if s.cfg.Interval > 0 && s.cfg.Interval < s.cfg.RetryInterval {
@@ -293,7 +353,8 @@ func (s *Scraper) retryDelay() time.Duration {
 }
 
 // Run refreshes immediately when data is missing or stale, then every Interval
-// (or after retryDelay following a failed refresh) until ctx is done.
+// (or after retryDelay following a failed refresh) until ctx is done. A
+// RequestRefresh runs one at once and restarts the interval.
 func (s *Scraper) Run(ctx context.Context) {
 	wait := time.Duration(0)
 	if st, err := s.st.LoadStatus(ctx); err == nil && st.LastSuccess != nil {
@@ -308,6 +369,7 @@ func (s *Scraper) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-timer.C:
+		case <-s.trigger:
 		}
 		_, err := s.Refresh(ctx)
 		if err != nil && ctx.Err() == nil {
