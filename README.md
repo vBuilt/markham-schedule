@@ -14,7 +14,8 @@ Everything lives at two addresses, which serve exactly the same thing:
 - **`https://markham.vincentlfilms.com`**: public, from anywhere, through a Cloudflare Tunnel.
 - **`http://vnas:8095`**: from the home network, or from anywhere on Tailscale.
 
-It's open to anyone: no password or token needed.
+Browsing is open to anyone: no password or token needed. Using new features needs a free account
+(see [Accounts](#accounts)).
 
 | What | Where |
 |---|---|
@@ -23,6 +24,7 @@ It's open to anyone: no password or token needed.
 | JSON API for apps | `https://markham.vincentlfilms.com/api/sessions?category=…&centre=…` |
 | Scrape status page: is it working, how each refresh went | `https://markham.vincentlfilms.com/status` |
 | Status as JSON | `https://markham.vincentlfilms.com/api/status` |
+| Sign in or create an account | `https://markham.vincentlfilms.com/login` |
 | Health check | `https://markham.vincentlfilms.com/healthz` |
 | Source code | <https://github.com/vBuilt/markham-schedule> |
 | Docker image | `ghcr.io/vbuilt/markham-schedule:latest` |
@@ -99,8 +101,18 @@ Use the public link everywhere and the calendar refreshes wherever you are.
 | `GET /api/activities` | Activities in each program: `[{category, name, count}]` |
 | `GET /api/status` | Last attempt and last success, per-program results, total, version, refresh interval, registration-date coverage |
 | `GET /api/runs` | History of recent refreshes, newest first (`limit`, default 50, max 300) |
-| `POST /api/refresh` | Starts a refresh now. `202` started, `409` one is already running, `429` too soon after the last one (with `Retry-After` in seconds) |
+| `POST /api/refresh` | Starts a refresh now. Needs a signed-in, confirmed account (`401` signed out, `403` not confirmed). `202` started, `409` one is already running, `429` too soon after the last one (with `Retry-After` in seconds) |
 | `GET /status` | The scrape status page |
+| `GET /api/auth/me` | `{user: {email, confirmed} or null, turnstile_site_key}`; `user` is `null` when signed out |
+| `POST /api/auth/signup` | `{email, password, turnstile}`: creates an account and emails a confirmation link. `202` |
+| `POST /api/auth/confirm` | `{t}`: confirms an email with the token from the link |
+| `POST /api/auth/resend` | Sends the confirmation email again. Needs sign-in |
+| `POST /api/auth/signin` | `{email, password}`: sets the session cookie |
+| `POST /api/auth/signout` | Ends the session. `204` |
+| `POST /api/auth/forgot` | `{email, turnstile}`: emails a reset link. `202` |
+| `POST /api/auth/reset` | `{t, password}`: sets a new password from the emailed token and signs you in |
+| `POST /api/auth/password` | `{current, new}`: changes your password. Needs sign-in. `204` |
+| `POST /api/auth/delete` | `{password}`: deletes your account. Needs sign-in. `204` |
 | `GET /calendar.ics` | The calendar feed described above |
 | `GET /healthz` | `ok` if the process is up |
 
@@ -140,12 +152,61 @@ Each session looks like this:
 `spots_left` is `0` for full sessions. `registration` is `null` until that course's registration
 page has been looked up. All three values `null` means in person only.
 
+The `/api/auth/*` and `/api/refresh` endpoints are for the web pages and use the session cookie,
+not a token. They take JSON, and every `POST` must come from the site itself: a request whose
+`Origin` (or `Referer`) host doesn't match the site is refused with `403`. They're not meant for
+scripts.
+
 Session `id`s stay the same across refreshes, so apps and calendars don't get duplicates. Errors
 come back as `{"error": "…"}`.
 
+## Accounts
+
+Anyone can create an account with an email address and a password. For now an account only unlocks
+**Refresh now** on the status page; every future new function will also need one.
+
+**Public, no sign-in needed:** the calendar page, the calendar feed (`/calendar.ics`), the read-only
+JSON API (`/api/sessions`, `/api/categories`, `/api/centres`, `/api/activities`, `/api/status`,
+`/api/runs`), the status page and `/healthz`. Existing links and calendar subscriptions keep working.
+
+**Needs a confirmed account:** **Refresh now** (`POST /api/refresh`). A signed-out visitor sees the
+button disabled with "Sign in to refresh now". Someone who has signed in but not confirmed their
+email sees "Confirm your email to refresh now".
+
+| Page | What it does |
+|---|---|
+| `/login` | Two tabs, **Sign in** and **Create account**, with a "Forgot your password?" link |
+| `/verify` | Where the link in the confirmation email lands |
+| `/forgot` | Asks for your email and sends a password reset link |
+| `/reset` | Where the link in the reset email lands; you choose a new password |
+| `/account` | Resend the confirmation email, change your password, sign out, delete your account |
+
+The calendar's top bar shows **Sign in**, or a menu once you're signed in.
+
+How it works:
+- **Create account:** enter an email and a password (10 to 200 characters, no other rules). The
+  service emails a confirmation link that works for 24 hours. Until you click it you can sign in
+  but can't use gated features; **Resend confirmation email** on `/account` sends a new link.
+  Accounts that are still unconfirmed after 7 days are deleted.
+- **Forgot password:** the reset link works once and lasts 1 hour. Setting a new password signs you
+  out everywhere else. The page always says "if that email has an account, we've sent a link", so
+  it never reveals which emails are registered.
+- **Sessions:** a cookie keeps you signed in for 30 days from your last visit. **Sign out** ends it.
+  Only a hash of the cookie and of every emailed link is stored, and passwords are stored hashed
+  (argon2id).
+- **Limits:** repeated wrong passwords lock that email and address out for a while, each
+  address gets a capped number of sign-in attempts, and the sign-up, reset and resend emails are
+  rate limited.
+- **Bot check:** Cloudflare Turnstile guards **Create account** and **Forgot password**.
+- Accounts live in the same `schedule.db` as the schedule, so they survive updates.
+
+Emails come from `Markham Drop-In <no-reply@vincentlfilms.com>` through Resend. The owner has to set
+that up once; see [Setting up accounts](#setting-up-accounts-owner-one-time-steps).
+
 ## Checking that it's healthy
 
-Open **`https://markham.vincentlfilms.com/status`** (also linked at the bottom of the calendar's filter panel). It shows:
+Open **`https://markham.vincentlfilms.com/status`** (also linked at the bottom of the calendar's
+filter panel). It shows:
 - an overall verdict: Healthy, Partly working, Behind, Failing or Starting up
 - when the last good refresh was and when the next is due
 - how many sessions have registration dates so far
@@ -154,7 +215,8 @@ Open **`https://markham.vincentlfilms.com/status`** (also linked at the bottom o
 - a chart and table of the last 100 refreshes: time taken, programs OK, sessions, registration
   lookups and errors
 - a **Refresh now** button that scrapes right away instead of waiting for the next scheduled
-  refresh. While it runs, the page checks every few seconds and updates when it's done. To go
+  refresh. You have to be signed in with a confirmed account; otherwise it's disabled and says
+  "Sign in to refresh now" or "Confirm your email to refresh now". While it runs, the page checks every few seconds and updates when it's done. To go
   easy on Markham's site, only one refresh runs at a time and the button stays off for 15 minutes
   after a refresh finishes; it shows when it'll be available again. A manual refresh also
   restarts the 3-hour schedule.
@@ -181,15 +243,23 @@ start, stop and view logs, but their settings can't be edited there.
 docker run -d --name markham-schedule --restart unless-stopped \
   -p 8095:8080 --user 99:100 \
   -v /mnt/user/appdata/markham-schedule:/data \
+  -e BASE_URL=https://markham.vincentlfilms.com \
+  -e RESEND_API_KEY=<resend key> \
+  -e TURNSTILE_SITE_KEY=<turnstile site key> \
+  -e TURNSTILE_SECRET=<turnstile secret key> \
   ghcr.io/vbuilt/markham-schedule:latest
 ```
+
+Replace the `<…>` placeholders with the real values from the steps below. Without the last three
+`-e` lines the service still runs, but emails are only written to the log and the bot check is off.
 
 - Host port **8095**, because Krusader already uses 8080 and vnas-dropbox uses 8090.
 - `--user 99:100` (Unraid's nobody:users) lets it write to the appdata folder.
 - The data is in `/mnt/user/appdata/markham-schedule/schedule.db`. You can delete it to start
   fresh; the next start re-scrapes, which takes about 4 minutes.
-- It runs without `API_TOKEN`, so the public address is open to anyone. Add
-  `-e API_TOKEN=<secret>` to require a token; every link then needs `?token=<secret>`.
+- It runs without `API_TOKEN`, so the public address is open to anyone to browse. Add
+  `-e API_TOKEN=<secret>` to require a token; every link then needs `?token=<secret>`. Accounts
+  work either way, and a token is never a substitute for signing in to use **Refresh now**.
 
 **`cloudflared`**, the Cloudflare Tunnel that publishes it:
 
@@ -212,12 +282,75 @@ automatically. To install it:
 ssh vnas
 docker pull ghcr.io/vbuilt/markham-schedule:latest
 docker rm -f markham-schedule
-docker run -d --name markham-schedule ...   # same command as above
+docker run -d --name markham-schedule ...   # same command as above, including the -e lines
 ```
 
 The saved schedule is kept. `GET /api/status` shows the running `version`.
 
 **Logs:** `docker logs -f markham-schedule`, or the container's log icon in the Unraid Docker tab.
+
+### Setting up accounts (owner, one-time steps)
+
+Sign-up emails go out through [Resend](https://resend.com), and the bot check is Cloudflare
+Turnstile. Both are free at this scale. Do these once, then add the keys to the `docker run` command.
+
+**1. Resend: send email from `vincentlfilms.com`**
+
+1. Create a Resend account at <https://resend.com> and sign in.
+2. Go to **Domains**, then **Add Domain**. Enter `vincentlfilms.com` and pick a region close to
+   you (for example `us-east-1`).
+3. Resend lists the DNS records to add (a TXT record for SPF, a CNAME or TXT for DKIM, and an MX
+   record for bounces). Keep that page open.
+4. In the Cloudflare dashboard, open the `vincentlfilms.com` zone, then **DNS**, then **Records**,
+   then **Add record**. Copy each record's type, name and value from Resend exactly. Set every one
+   to **DNS only** (grey cloud), not proxied.
+5. Back in Resend, click **Verify DNS Records**. It can take a few minutes. Wait for the status to
+   say **Verified**.
+6. Go to **API Keys**, then **Create API Key**. Give it the name `markham-schedule` and the
+   permission **Sending access**, limited to `vincentlfilms.com`. Copy the key (it starts with
+   `re_`) now: Resend shows it only once. This is `RESEND_API_KEY`.
+
+Mail is sent as `Markham Drop-In <no-reply@vincentlfilms.com>`. To use another sender on the same
+verified domain, add `-e MAIL_FROM="Name <address@vincentlfilms.com>"`.
+
+**2. Cloudflare Turnstile: the bot check**
+
+1. In the Cloudflare dashboard, open **Turnstile** (in the left menu), then **Add widget**
+   (or **Add site**).
+2. Name it `markham-schedule`.
+3. Under **Hostname**, add `markham.vincentlfilms.com`. Adding `vnas` as well is optional: it's
+   only needed for signing up from `http://vnas:8095`. If Cloudflare won't accept it, skip it and
+   sign up through the public address instead.
+4. Choose **Managed** as the widget mode, then **Create**.
+5. Copy the **Site Key** (this is `TURNSTILE_SITE_KEY`) and the **Secret Key** (this is
+   `TURNSTILE_SECRET`).
+
+**3. Recreate the container with the keys**
+
+```
+ssh vnas
+docker pull ghcr.io/vbuilt/markham-schedule:latest
+docker rm -f markham-schedule
+docker run -d --name markham-schedule --restart unless-stopped \
+  -p 8095:8080 --user 99:100 \
+  -v /mnt/user/appdata/markham-schedule:/data \
+  -e BASE_URL=https://markham.vincentlfilms.com \
+  -e RESEND_API_KEY=<resend key> \
+  -e TURNSTILE_SITE_KEY=<turnstile site key> \
+  -e TURNSTILE_SECRET=<turnstile secret key> \
+  ghcr.io/vbuilt/markham-schedule:latest
+```
+
+Check `docker logs markham-schedule`. A warning at startup means a key is missing (it says that
+bot protection or email is off).
+
+**4. Try it**
+
+Open `https://markham.vincentlfilms.com/login`, create an account with your own email, click the
+link in the email, then sign in and press **Refresh now** on `/status`.
+
+`BASE_URL` is the address used for the links in emails, so it must be the public address. A link
+in an email opened from the home network still works, because the public address works there too.
 
 ### Settings (environment variables)
 
@@ -234,6 +367,12 @@ Add them to the `docker run` command with `-e NAME=value`.
 | `DATA_DIR` | `/data` | Where `schedule.db` lives |
 | `REG_LOOKUPS` | `600` | Maximum registration pages fetched per refresh, at `REQUEST_DELAY` spacing. `0` turns registration lookups off |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
+| `BASE_URL` | empty | The public address, used for links in emails, e.g. `https://markham.vincentlfilms.com`. Must be a full URL. Also accepted as the site's own address when checking that sign-in requests come from the site. If empty, the service picks a local default |
+| `RESEND_API_KEY` | empty | Resend API key for sending email. If empty, emails are written to the log instead of sent |
+| `MAIL_FROM` | `Markham Drop-In <no-reply@vincentlfilms.com>` | Sender of account emails. Its domain must be verified in Resend |
+| `TURNSTILE_SITE_KEY` | empty | Cloudflare Turnstile site key, shown to the browser. Set it together with `TURNSTILE_SECRET`: the bot check is on only when both are set. If both are empty the check is off, pages get no site key, and a warning is logged at startup. Setting just one is a startup error |
+| `TURNSTILE_SECRET` | empty | Cloudflare Turnstile secret key, used by the server to check answers. Set both or neither (see `TURNSTILE_SITE_KEY`) |
+| `TRUSTED_PROXIES` | `172.16.0.0/12` | Comma-separated networks whose `CF-Connecting-IP` and `X-Forwarded-Proto` headers are believed (Docker's range, where `cloudflared` connects from). Used for rate limits and the cookie's `Secure` flag |
 
 Durations use Go syntax (`30m`, `3h`). The timezone is always America/Toronto.
 
@@ -245,6 +384,12 @@ go vet ./...
 DATA_DIR=$(mktemp -d) go run ./cmd/markham-schedule -once   # one live scrape, ~4 minutes, prints a summary
 DATA_DIR=<same dir> go run ./cmd/markham-schedule           # serve on :8080
 ```
+
+Without `RESEND_API_KEY`, emails (confirmation and reset links) are written to the log instead of
+being sent, so run it in a terminal and copy the link from there. Without Turnstile keys the bot
+check is skipped. To test the Turnstile widget locally, use Cloudflare's test keys: site key
+`1x00000000000000000000AA` with secret `1x0000000000000000000000000000000AA` always passes. Set
+`BASE_URL=http://localhost:8080` so links in emails point at your local server.
 
 Other flags: `-version`, and `-healthcheck`, which the Docker health check uses.
 

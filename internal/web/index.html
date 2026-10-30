@@ -222,6 +222,26 @@ dialog::backdrop { background: rgba(10, 25, 31, .45); }
 .tag { display: inline-block; border-left: 3px solid var(--c); padding: 0 6px; margin: 0 4px 2px 0; background: color-mix(in srgb, var(--c) var(--chip-mix), var(--surface)); border-radius: 3px; font-size: 13px; }
 .urlbox { width: 100%; padding: 8px; border: 1px solid var(--grout); border-radius: 8px; background: var(--tile); font-size: 13px; margin: 8px 0 12px; }
 a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* account */
+#signInBtn { color: var(--ink); gap: 6px; }
+#signInBtn[hidden] { display: none; }
+#signInBtn svg { display: none; width: 20px; height: 20px; }
+.acct { position: relative; }
+#acctBtn { width: auto; min-width: 36px; padding: 0 10px; gap: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; }
+#acctBtn .caret { font-size: 11px; color: var(--ink-2); }
+.acct-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: max-content; min-width: 220px; max-width: calc(100vw - 32px);
+  background: var(--surface); border: 1px solid var(--grout); border-radius: 8px; box-shadow: var(--shadow); padding: 4px 0;
+}
+.acct-menu > * { display: block; width: 100%; padding: 9px 14px; margin: 0; text-align: left; color: var(--ink); text-decoration: none; background: none; border: 0; }
+.acct-menu > * + * { border-top: 1px solid var(--grout-2); }
+.acct-menu > [hidden] { display: none; }
+.acct-menu a:hover, .acct-menu button:hover { background: var(--grout-2); }
+.acct-menu .who { color: var(--ink-2); font-size: 13px; overflow-wrap: anywhere; }
+.acct-menu .who b { color: var(--ink); font-weight: 400; }
+.acct-menu .notice { color: #b7791f; font-weight: 700; }
+@media (prefers-color-scheme: dark) { .acct-menu .notice { color: #e3a948; } }
 .hint { color: var(--ink-2); font-size: 14px; margin: 0 0 4px; }
 
 /* phone */
@@ -237,6 +257,11 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   body.sheet::after { content: ""; position: fixed; inset: 0; background: rgba(10, 25, 31, .35); z-index: 19; }
   #filtersBtn { display: inline-flex; }
   .brand span, #weekBtn { display: none; }
+  #signInBtn { width: 36px; padding: 0; justify-content: center; }
+  #signInBtn svg { display: block; }
+  #signInBtn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  #acctBtn { padding: 0; }
+  #acctBtn .caret { display: none; }
   .bar { gap: 8px; }
   .range { order: 10; width: 100%; font-size: 16px; }
   .row { grid-template-columns: 84px 1fr; }
@@ -261,6 +286,16 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   </div>
   <button class="btn" id="filtersBtn">Filters<span class="badge" id="fcount" hidden></span></button>
   <button class="btn primary" id="subBtn">Subscribe</button>
+  <a class="btn" id="signInBtn" href="/login?next=/" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg><span>Sign in</span></a>
+  <div class="acct" id="acct" hidden>
+    <button class="btn icon" id="acctBtn" type="button" aria-expanded="false" aria-controls="acctMenu"><span id="acctInitial" aria-hidden="true"></span><span class="caret" aria-hidden="true">▾</span><span class="sr">Account menu</span></button>
+    <div class="acct-menu" id="acctMenu" hidden>
+      <p class="who">Signed in as <b id="acctEmail"></b></p>
+      <a class="notice" id="acctConfirm" href="/account" hidden>Confirm your email</a>
+      <a id="acctSettings" href="/account">Account settings</a>
+      <button type="button" id="acctOut">Sign out</button>
+    </div>
+  </div>
 </header>
 
 <div class="app">
@@ -707,11 +742,51 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   $("#filtersBtn").onclick = () => document.body.classList.toggle("sheet");
   document.addEventListener("click", (e) => { if (document.body.classList.contains("sheet") && !e.target.closest("#rail,#filtersBtn")) document.body.classList.remove("sheet"); });
   document.addEventListener("keydown", (e) => {
-    if (e.target.matches("input") || document.querySelector("dialog[open]")) return;
+    if (e.target.matches("input") || e.target.closest("#acct") || document.querySelector("dialog[open]")) return;
     const map = { ArrowLeft: "#prevBtn", ArrowRight: "#nextBtn", t: "#todayBtn", d: "#dayBtn", w: "#weekBtn", l: "#listBtn" };
     if (map[e.key]) { e.preventDefault(); $(map[e.key]).click(); }
   });
   setInterval(() => { if (state.view !== "list" && !document.hidden) render(); }, 60000);
+
+  // ---- account (top bar): Sign in, or a menu when signed in ----
+  const withTok = (p) => p + (TOKEN ? (p.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : "");
+  $("#signInBtn").href = withTok("/login?next=/");
+  $("#acctConfirm").href = $("#acctSettings").href = withTok("/account");
+  const acctMenu = $("#acctMenu"), acctBtn = $("#acctBtn");
+  function setMenu(open) {
+    acctMenu.hidden = !open;
+    acctBtn.setAttribute("aria-expanded", open);
+  }
+  function showAccount(user) {
+    $("#signInBtn").hidden = !!user;
+    $("#acct").hidden = !user;
+    if (!user) { setMenu(false); return; }
+    $("#acctInitial").textContent = user.email.charAt(0).toUpperCase();
+    $("#acctEmail").textContent = user.email;
+    $("#acctConfirm").hidden = user.confirmed;
+  }
+  acctBtn.onclick = () => {
+    setMenu(acctMenu.hidden);
+    if (!acctMenu.hidden) acctMenu.querySelector("a:not([hidden]), button").focus();
+  };
+  document.addEventListener("click", (e) => { if (!acctMenu.hidden && !e.target.closest("#acct")) setMenu(false); });
+  $("#acct").addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !acctMenu.hidden) { e.stopPropagation(); setMenu(false); acctBtn.focus(); }
+  });
+  document.addEventListener("focusin", (e) => { if (!acctMenu.hidden && !e.target.closest("#acct")) setMenu(false); });
+  $("#acctOut").onclick = async (e) => {
+    const b = e.currentTarget;
+    let ok = false;
+    try { ok = (await fetch(withTok("/api/auth/signout"), { method: "POST" })).ok; } catch {}
+    if (!ok) { b.textContent = "Couldn't sign out. Try again."; return; }
+    b.textContent = "Sign out";
+    showAccount(null);
+    $("#signInBtn").focus();
+  };
+  fetch(withTok("/api/auth/me"))
+    .then((r) => (r.ok ? r.json() : null))
+    .then((me) => { if (me) showAccount(me.user); }) // no accounts on this server: show neither
+    .catch(() => {});
 
   // ---- boot ----
   (async () => {

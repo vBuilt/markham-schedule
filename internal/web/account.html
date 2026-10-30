@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your account · Markham drop-in</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2312303b'/%3E%3Cpath d='M6 12h20M6 18h20M6 24h20' stroke='%23d9443a' stroke-width='2.5' stroke-dasharray='3 2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --tile: #f3f7f8; --surface: #fff; --ink: #12303b; --ink-2: #4d6670; --grout: #d8e3e6; --grout-2: #ebf1f3;
+  --good: #2f8f4e; --warn: #b7791f; --bad: #d9443a; --bar: #1d6fb8; --on-bar: #fff;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --tile: #0e1c22; --surface: #132831; --ink: #e4eef1; --ink-2: #93abb4; --grout: #24414c; --grout-2: #1a333d;
+    --good: #5cc27e; --warn: #e3a948; --bad: #ff6a5c; --bar: #6bb7ff; --on-bar: #0e1c22; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--tile); color: var(--ink); font: 15px/1.45 var(--font); }
+a { color: var(--bar); }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.wrap { max-width: 480px; margin: 0 auto; padding: calc(24px + env(safe-area-inset-top)) 16px 48px; }
+.brand { display: inline-block; margin-bottom: 16px; font-weight: 700; font-size: 18px; color: var(--ink); text-decoration: none; }
+.brand span { color: var(--ink-2); font-weight: 400; }
+.card { background: var(--surface); border: 1px solid var(--grout); border-radius: 10px; padding: 20px; margin-bottom: 14px; }
+h1 { font-size: 22px; margin: 0 0 14px; }
+h2 { font-size: 17px; margin: 0 0 4px; }
+p { margin: 0; }
+label { display: block; font-size: 13px; color: var(--ink-2); margin: 12px 0 4px; }
+input { width: 100%; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--grout); border-radius: 7px; padding: 9px 10px; }
+.btn { display: inline-block; margin-top: 16px; font: 700 15px/1 var(--font); color: var(--on-bar); background: var(--bar); border: 0; border-radius: 8px; padding: 12px 16px; cursor: pointer; text-align: center; text-decoration: none; }
+.btn:hover:not(:disabled) { filter: brightness(1.1); }
+.btn:disabled { background: var(--grout); color: var(--ink-2); cursor: default; }
+.btn.plain { color: var(--ink); background: var(--surface); border: 1px solid var(--grout); }
+.btn.danger { color: var(--on-bar); background: var(--bad); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.err { color: var(--bad); margin: 12px 0 0; } .err:empty { margin: 0; }
+.msg { margin: 12px 0 0; } .msg:empty { margin: 0; }
+.ok { padding: 10px 12px; border-left: 4px solid var(--good); background: var(--grout-2); border-radius: 6px; }
+.muted { color: var(--ink-2); }
+.state { font-weight: 700; color: var(--good); }
+.state.no { color: var(--warn); }
+.confirm { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--bad); border-radius: 8px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="brand" href="/">Markham drop-in <span>schedule</span></a>
+  <h1>Your account</h1>
+
+  <div id="main" hidden>
+    <section class="card" aria-labelledby="emailH">
+      <h2 id="emailH">Email</h2>
+      <p id="email"></p>
+      <p class="state" id="state"></p>
+      <div id="unconfirmed" hidden>
+        <p class="muted">Confirm your email to refresh the schedule on demand. Check your inbox for the link, or get a new one.</p>
+        <button class="btn plain" type="button" id="resend">Resend confirmation email</button>
+      </div>
+      <p class="msg" id="resendMsg" aria-live="polite"></p>
+    </section>
+
+    <section class="card" aria-labelledby="pwH">
+      <h2 id="pwH">Change password</h2>
+      <form id="pwForm" novalidate>
+        <input class="username" type="email" autocomplete="username" hidden tabindex="-1" aria-hidden="true">
+        <label for="cur">Current password</label>
+        <input id="cur" type="password" autocomplete="current-password" required>
+        <label for="new1">New password (at least 10 characters)</label>
+        <input id="new1" type="password" autocomplete="new-password" minlength="10" maxlength="200" required>
+        <label for="new2">New password again</label>
+        <input id="new2" type="password" autocomplete="new-password" minlength="10" maxlength="200" required>
+        <p class="msg" id="pwMsg" aria-live="polite"></p>
+        <button class="btn" type="submit">Change password</button>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="outH">
+      <h2 id="outH">Sign out</h2>
+      <p class="muted">Signs you out on this device.</p>
+      <button class="btn plain" type="button" id="signOut">Sign out</button>
+      <p class="err" id="outErr" role="alert"></p>
+    </section>
+
+    <section class="card" aria-labelledby="delH">
+      <h2 id="delH">Delete account</h2>
+      <form id="delForm" novalidate>
+        <p class="muted">Removes your account and signs you out everywhere. The calendar stays open to everyone.</p>
+        <input class="username" type="email" autocomplete="username" hidden tabindex="-1" aria-hidden="true">
+        <label for="delPw">Password</label>
+        <input id="delPw" type="password" autocomplete="current-password" required>
+        <button class="btn plain" type="submit" id="delAsk">Delete account…</button>
+        <div class="confirm" id="delConfirm" hidden>
+          <p><b>Delete your account for good?</b> This can't be undone.</p>
+          <div class="row">
+            <button class="btn danger" type="button" id="delYes">Yes, delete my account</button>
+            <button class="btn plain" type="button" id="delNo">Cancel</button>
+          </div>
+        </div>
+        <p class="err" id="delErr" role="alert"></p>
+      </form>
+    </section>
+  </div>
+
+  <section class="card" id="gone" role="status" hidden>
+    <p class="ok">Your account was deleted.</p>
+    <a class="btn" href="/">Go to the calendar</a>
+  </section>
+  <p class="err" id="loadErr" role="alert"></p>
+</main>
+<script>
+(() => {
+  "use strict";
+  const qs = new URLSearchParams(location.search);
+  const TOKEN = qs.get("token") || "";
+  const $ = (s) => document.querySelector(s);
+  // tok adds the API token (when the page was opened with one) to a same-site path.
+  const tok = (p) => { if (!TOKEN) return p; const u = new URL(p, location.origin); u.searchParams.set("token", TOKEN); return u.pathname + u.search + u.hash; };
+  const sentence = (s) => { s = String(s); s = s.charAt(0).toUpperCase() + s.slice(1); return /[.!?]$/.test(s) ? s : s + "."; };
+  async function post(path, body) {
+    try {
+      const r = await fetch(tok(path), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+      const data = await r.json().catch(() => ({}));
+      return r.ok ? { ok: true, data } : { ok: false, status: r.status, error: sentence(data.error || `Something went wrong (HTTP ${r.status})`) };
+    } catch {
+      return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
+    }
+  }
+  document.querySelectorAll('a[href^="/"]').forEach((a) => (a.href = tok(a.getAttribute("href"))));
+  const toLogin = () => location.replace(tok("/login?next=/account"));
+  // say shows a result in a live region: ok=true styles it as a success.
+  const say = (el, text, ok) => { el.textContent = text; el.className = "msg" + (ok ? " ok" : " err"); };
+
+  function show(user) {
+    $("#email").textContent = user.email;
+    document.querySelectorAll(".username").forEach((i) => (i.value = user.email)); // for password managers
+    $("#state").textContent = user.confirmed ? "Confirmed" : "Not confirmed yet";
+    $("#state").classList.toggle("no", !user.confirmed);
+    $("#unconfirmed").hidden = user.confirmed;
+    $("#main").hidden = false;
+  }
+
+  $("#resend").onclick = async (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    const r = await post("/api/auth/resend");
+    b.disabled = false;
+    if (r.status === 401) return toLogin();
+    say($("#resendMsg"), r.ok ? `We've sent a new link to ${$("#email").textContent}. It works for 24 hours.` : r.error, r.ok);
+  };
+
+  $("#pwForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const msg = $("#pwMsg"), current = $("#cur").value, nw = $("#new1").value, b = e.target.querySelector("button");
+    if (!current) return say(msg, "Enter your current password.");
+    if (nw.length < 10 || nw.length > 200) return say(msg, "New password must be 10 to 200 characters.");
+    if (nw !== $("#new2").value) return say(msg, "The two new passwords don't match.");
+    b.disabled = true;
+    const r = await post("/api/auth/password", { current, new: nw });
+    b.disabled = false;
+    if (r.status === 401 && !r.error.startsWith("Current")) return toLogin();
+    if (r.ok) e.target.reset();
+    say(msg, r.ok ? "Password changed. Other devices have been signed out." : r.error, r.ok);
+  };
+
+  $("#signOut").onclick = async (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    const r = await post("/api/auth/signout");
+    b.disabled = false;
+    if (r.ok) location.assign(tok("/"));
+    else $("#outErr").textContent = r.error;
+  };
+
+  const delErr = $("#delErr"), delConfirm = $("#delConfirm");
+  $("#delForm").onsubmit = (e) => {
+    e.preventDefault();
+    if (!$("#delPw").value) { delErr.textContent = "Enter your password to delete your account."; return; }
+    delErr.textContent = "";
+    delConfirm.hidden = false;
+    $("#delAsk").hidden = true;
+    $("#delYes").focus();
+  };
+  const cancelDelete = () => { delConfirm.hidden = true; $("#delAsk").hidden = false; };
+  $("#delNo").onclick = () => { cancelDelete(); $("#delAsk").focus(); };
+  $("#delYes").onclick = async (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    const r = await post("/api/auth/delete", { password: $("#delPw").value });
+    b.disabled = false;
+    if (r.ok) { $("#main").hidden = true; $("#gone").hidden = false; return; }
+    const wrongPw = r.error.startsWith("Current password");
+    if (r.status === 401 && !wrongPw) return toLogin();
+    cancelDelete();
+    delErr.textContent = wrongPw ? "Password is incorrect." : r.error;
+    $("#delPw").focus();
+  };
+
+  fetch(tok("/api/auth/me"))
+    .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then((me) => (me.user ? show(me.user) : toLogin()))
+    .catch((e) => { $("#loadErr").textContent = `Couldn't load your account (${e.message}). Reload the page to try again.`; });
+})();
+</script>
+</body>
+</html>

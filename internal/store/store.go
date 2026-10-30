@@ -28,6 +28,15 @@ CREATE INDEX IF NOT EXISTS session_categories_cat ON session_categories(category
 CREATE TABLE IF NOT EXISTS status(id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS reg_rules(event_id TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS runs(id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS users(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
+  confirmed INTEGER NOT NULL DEFAULT 0, created_unix INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS user_sessions(
+  token_hash BLOB PRIMARY KEY, user_id INTEGER NOT NULL, expires_unix INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS user_sessions_user ON user_sessions(user_id);
+CREATE TABLE IF NOT EXISTS auth_tokens(
+  token_hash BLOB PRIMARY KEY, kind TEXT NOT NULL, user_id INTEGER NOT NULL, expires_unix INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS auth_tokens_user ON auth_tokens(user_id);
 `
 
 type Store struct {

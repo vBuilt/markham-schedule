@@ -13,6 +13,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"github.com/vBuilt/markham-schedule/internal/auth"
 	"github.com/vBuilt/markham-schedule/internal/ics"
 	"github.com/vBuilt/markham-schedule/internal/schedule"
 	"github.com/vBuilt/markham-schedule/internal/scraper"
@@ -47,7 +48,8 @@ type Options struct {
 	FeedDays                int // default 60
 	Loc                     *time.Location
 	Now                     func() time.Time
-	Refresher               Refresher // nil disables POST /api/refresh
+	Refresher               Refresher  // nil disables POST /api/refresh
+	Auth                    *auth.HTTP // nil disables accounts; Refresh now then needs no sign-in
 }
 
 type server struct {
@@ -85,10 +87,24 @@ func New(st Store, o Options) http.Handler {
 	mux.HandleFunc("GET /api/status", s.auth(s.status))
 	mux.HandleFunc("GET /api/runs", s.auth(s.runs))
 	mux.HandleFunc("GET /status", s.auth(web.Status))
-	if o.Refresher != nil {
-		mux.HandleFunc("POST /api/refresh", s.auth(s.refreshNow))
+	var h http.Handler = mux
+	if o.Auth != nil {
+		o.Auth.Register(mux, s.auth)
+		mux.HandleFunc("GET /login", s.auth(web.Login))
+		mux.HandleFunc("GET /forgot", s.auth(web.Forgot))
+		mux.HandleFunc("GET /reset", s.auth(web.Reset))
+		mux.HandleFunc("GET /verify", s.auth(web.Verify))
+		mux.HandleFunc("GET /account", s.auth(web.Account))
+		h = o.Auth.Middleware(mux)
 	}
-	return mux
+	if o.Refresher != nil {
+		refresh := s.refreshNow
+		if o.Auth != nil {
+			refresh = o.Auth.RequireConfirmed(refresh)
+		}
+		mux.HandleFunc("POST /api/refresh", s.auth(refresh))
+	}
+	return h
 }
 
 func (s *server) auth(next http.HandlerFunc) http.HandlerFunc {

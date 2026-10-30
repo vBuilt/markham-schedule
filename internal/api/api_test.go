@@ -327,7 +327,7 @@ func post(h http.Handler, target string) *httptest.ResponseRecorder {
 
 func TestRefreshNow(t *testing.T) {
 	fr := &fakeRefresher{}
-	h := newH(&fakeStore{}, Options{Refresher: fr})
+	h := newH(&fakeStore{}, Options{Refresher: fr, Auth: nil})
 	if w := post(h, "/api/refresh"); w.Code != 202 || fr.calls != 1 {
 		t.Fatal(w.Code, fr.calls, w.Body.String())
 	}

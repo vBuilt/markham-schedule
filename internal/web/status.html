@@ -33,6 +33,7 @@ header a { color: var(--ink-2); }
 .hero { display: flex; gap: 16px 24px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
 .hero .act { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .hero .act small { color: var(--ink-2); font-size: 13px; text-align: right; max-width: 28ch; }
+.hero .act small a { color: var(--bar); }
 .btn { font: 700 15px/1 var(--font); color: #fff; background: var(--bar); border: 0; border-radius: 8px; padding: 11px 16px; cursor: pointer; }
 .btn:hover:not(:disabled) { filter: brightness(1.1); }
 .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
@@ -88,7 +89,11 @@ tr:last-child td { border-bottom: 0; }
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const api = async (p) => { const r = await fetch(p + (p.includes("?") ? "&" : "?") + (TOKEN ? "token=" + encodeURIComponent(TOKEN) : "")); if (!r.ok) throw new Error(`${p} returned HTTP ${r.status}`); return r.json(); };
+  const withTok = (p) => p + (TOKEN ? (p.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : "");
   if (TOKEN) $("#back").href = "./?token=" + encodeURIComponent(TOKEN);
+  // account is GET /api/auth/me's answer, or null when this server has no accounts.
+  let account = null;
+  const getAccount = () => fetch(withTok("/api/auth/me")).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 
   const dtFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   const tFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, hour: "numeric", minute: "2-digit" });
@@ -146,10 +151,12 @@ tr:last-child td { border-bottom: 0; }
   let note = "";
   function refreshControl(st) {
     if (!st.refresh_now) return "";
-    let label = "Refresh now", dis = false, sub = note || "Fetches the latest schedule from Markham's site.";
+    let label = "Refresh now", dis = false, sub = esc(note || "Fetches the latest schedule from Markham's site.");
     if (st.refreshing) { label = `<span class="spin"></span>Refreshing…`; dis = true; sub = ""; }
-    else if (st.refresh_now_at) { dis = true; sub = `Available again at ${tFmt.format(new Date(st.refresh_now_at))}; refreshes are spaced 15 minutes apart to go easy on Markham's site.`; }
-    return `<div class="act"><button class="btn" id="refreshBtn" type="button"${dis ? " disabled" : ""}>${label}</button>${sub ? `<small>${esc(sub)}</small>` : ""}</div>`;
+    else if (account && !account.user) { dis = true; sub = `<a href="${esc(withTok("/login?next=/status"))}">Sign in</a> to refresh now`; }
+    else if (account && !account.user.confirmed) { dis = true; sub = `<a href="${esc(withTok("/account"))}">Confirm your email</a> to refresh now`; }
+    else if (st.refresh_now_at) { dis = true; sub = esc(`Available again at ${tFmt.format(new Date(st.refresh_now_at))}; refreshes are spaced 15 minutes apart to go easy on Markham's site.`); }
+    return `<div class="act"><button class="btn" id="refreshBtn" type="button"${dis ? " disabled" : ""}>${label}</button>${sub ? `<small>${sub}</small>` : ""}</div>`;
   }
 
   async function refreshNow() {
@@ -158,7 +165,11 @@ tr:last-child td { border-bottom: 0; }
     try {
       const r = await fetch("/api/refresh" + (TOKEN ? "?token=" + encodeURIComponent(TOKEN) : ""), { method: "POST" });
       const body = await r.json().catch(() => ({}));
-      note = r.ok || r.status === 409 ? "" : (body.error ? body.error.charAt(0).toUpperCase() + body.error.slice(1) + "." : `Couldn't start a refresh (HTTP ${r.status}).`);
+      // Signed out or unconfirmed: the control itself explains what to do.
+      const unconfirmed = r.status === 403 && body.error === "confirm your email first";
+      if (r.status === 401) account = { user: null };
+      else if (unconfirmed) account = { user: { ...account?.user, confirmed: false } };
+      note = r.status === 401 || unconfirmed ? "" : r.ok || r.status === 409 ? "" : (body.error ? body.error.charAt(0).toUpperCase() + body.error.slice(1) + "." : `Couldn't start a refresh (HTTP ${r.status}).`);
     } catch (e) {
       note = `Couldn't start a refresh: ${e.message}.`;
     }
@@ -215,7 +226,8 @@ tr:last-child td { border-bottom: 0; }
     clearTimeout(timer);
     let next = 60000;
     try {
-      const [st, runs] = await Promise.all([api("/api/status"), api("/api/runs?limit=100")]);
+      const [st, runs, acc] = await Promise.all([api("/api/status"), api("/api/runs?limit=100"), getAccount()]);
+      if (acc) account = acc;
       if (wasRefreshing && !st.refreshing) note = "";
       wasRefreshing = st.refreshing;
       if (st.refreshing) next = 5000;

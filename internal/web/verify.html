@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Confirm email · Markham drop-in</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2312303b'/%3E%3Cpath d='M6 12h20M6 18h20M6 24h20' stroke='%23d9443a' stroke-width='2.5' stroke-dasharray='3 2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --tile: #f3f7f8; --surface: #fff; --ink: #12303b; --ink-2: #4d6670; --grout: #d8e3e6; --grout-2: #ebf1f3;
+  --good: #2f8f4e; --bad: #d9443a; --bar: #1d6fb8; --on-bar: #fff;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --tile: #0e1c22; --surface: #132831; --ink: #e4eef1; --ink-2: #93abb4; --grout: #24414c; --grout-2: #1a333d;
+    --good: #5cc27e; --bad: #ff6a5c; --bar: #6bb7ff; --on-bar: #0e1c22; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--tile); color: var(--ink); font: 15px/1.45 var(--font); }
+a { color: var(--bar); }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.wrap { max-width: 420px; margin: 0 auto; padding: calc(24px + env(safe-area-inset-top)) 16px 48px; }
+.brand { display: inline-block; margin-bottom: 16px; font-weight: 700; font-size: 18px; color: var(--ink); text-decoration: none; }
+.brand span { color: var(--ink-2); font-weight: 400; }
+.card { background: var(--surface); border: 1px solid var(--grout); border-radius: 10px; padding: 20px; }
+h1 { font-size: 20px; margin: 0 0 8px; }
+p { margin: 0; }
+.btn { display: block; width: 100%; margin-top: 16px; font: 700 15px/1 var(--font); color: var(--on-bar); background: var(--bar); border: 0; border-radius: 8px; padding: 12px 16px; cursor: pointer; text-align: center; text-decoration: none; }
+.btn:hover { filter: brightness(1.1); }
+.err { color: var(--bad); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="brand" href="/">Markham drop-in <span>schedule</span></a>
+  <div class="card" aria-live="polite">
+    <div id="wait"><h1>Confirming your email…</h1></div>
+    <div id="ok" hidden>
+      <h1>Email confirmed</h1>
+      <p>Sign in to continue.</p>
+      <a class="btn" href="/login">Sign in</a>
+    </div>
+    <div id="bad" hidden>
+      <h1>Couldn't confirm your email</h1>
+      <p class="err" id="err"></p>
+      <a class="btn" href="/account">Send a new link from your account page</a>
+    </div>
+  </div>
+</main>
+<script>
+(() => {
+  "use strict";
+  const qs = new URLSearchParams(location.search);
+  const TOKEN = qs.get("token") || "";
+  const $ = (s) => document.querySelector(s);
+  // tok adds the API token (when the page was opened with one) to a same-site path.
+  const tok = (p) => { if (!TOKEN) return p; const u = new URL(p, location.origin); u.searchParams.set("token", TOKEN); return u.pathname + u.search + u.hash; };
+  const sentence = (s) => { s = String(s); s = s.charAt(0).toUpperCase() + s.slice(1); return /[.!?]$/.test(s) ? s : s + "."; };
+  async function post(path, body) {
+    try {
+      const r = await fetch(tok(path), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await r.json().catch(() => ({}));
+      return r.ok ? { ok: true, data } : { ok: false, status: r.status, error: sentence(data.error || `Something went wrong (HTTP ${r.status})`) };
+    } catch {
+      return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
+    }
+  }
+  document.querySelectorAll('a[href^="/"]').forEach((a) => (a.href = tok(a.getAttribute("href"))));
+
+  (async () => {
+    const t = qs.get("t") || "";
+    const r = t ? await post("/api/auth/confirm", { t }) : { ok: false, error: "This link has expired or was already used." };
+    $("#wait").hidden = true;
+    if (r.ok) { $("#ok").hidden = false; return; }
+    $("#err").textContent = r.error;
+    $("#bad").hidden = false;
+  })();
+})();
+</script>
+</body>
+</html>
