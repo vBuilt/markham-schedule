@@ -1,0 +1,19 @@
+services:
+  markham-schedule:
+    image: ghcr.io/vbuilt/markham-schedule:latest
+    container_name: markham-schedule
+    ports:
+      - "8080:8080"
+    volumes:
+      # chown 65532:65532 this folder first (or add `user: "99:100"` below on Unraid)
+      - /mnt/user/appdata/markham-schedule:/data
+    environment:
+      LISTEN_ADDR: ":8080"
+      DATA_DIR: /data
+      REFRESH_INTERVAL: 3h
+      REQUEST_DELAY: 1s
+      HORIZON: 2160h
+      RETENTION: 336h
+      API_TOKEN: ""
+      LOG_LEVEL: info
+    restart: unless-stopped

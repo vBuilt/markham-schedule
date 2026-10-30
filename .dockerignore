@@ -1,0 +1,9 @@
+.git
+.github
+.superpowers
+docs
+scripts
+data
+*.db
+*.md
+docker-compose.yml
