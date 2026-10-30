@@ -4,26 +4,38 @@ The City of Markham's drop-in recreation schedule (swimming, aquafit, skating, g
 sports and more) as a calendar web page, a subscribable calendar feed, and a JSON API.
 
 A small Go service scrapes Markham's PerfectMind booking site every 3 hours, keeps the results
-in SQLite, and serves them from a single Docker container. It runs on the Unraid NAS `vnas`.
+in SQLite, and serves them from a single Docker container. It runs on the Unraid NAS `vnas` and is
+published to the internet through a Cloudflare Tunnel.
 
 ## Quick access
 
-Everything lives at **`http://vnas:8095`**. It's reachable from the home network, or from
-anywhere on Tailscale.
+Everything lives at two addresses, which serve exactly the same thing:
 
-| What | Where |
+- **`https://markham.vincentlfilms.com`**: public, from anywhere, through a Cloudflare Tunnel.
+- **`http://vnas:8095`**: from the home network, or from anywhere on Tailscale.
+
+**Every link needs the access token.** Add `?token=…` to the address, or `&token=…` if it already
+has a `?`. Without it you get `401 Unauthorized`. The token isn't in this repo. Find it on vNas
+with `docker inspect markham-schedule | grep API_TOKEN`.
+
+| What | Where (add the token) |
 |---|---|
-| Calendar web page | [`http://vnas:8095/`](http://vnas:8095/) |
-| Calendar feed for your calendar app | `http://vnas:8095/calendar.ics?category=…&centre=…` |
-| JSON API for apps | `http://vnas:8095/api/sessions?category=…&centre=…` |
-| Scrape status page: is it working, how each refresh went | [`http://vnas:8095/status`](http://vnas:8095/status) |
-| Status as JSON | [`http://vnas:8095/api/status`](http://vnas:8095/api/status) |
+| Calendar web page | `https://markham.vincentlfilms.com/?token=…` |
+| Calendar feed for your calendar app | `https://markham.vincentlfilms.com/calendar.ics?category=…&centre=…&token=…` |
+| JSON API for apps | `https://markham.vincentlfilms.com/api/sessions?category=…&centre=…&token=…` |
+| Scrape status page: is it working, how each refresh went | `https://markham.vincentlfilms.com/status?token=…` |
+| Status as JSON | `https://markham.vincentlfilms.com/api/status?token=…` |
+| Health check (no token needed) | `https://markham.vincentlfilms.com/healthz` |
 | Source code | <https://github.com/vBuilt/markham-schedule> |
 | Docker image | `ghcr.io/vbuilt/markham-schedule:latest` |
 
+Open the web page once with the token and it carries the token along: the **Subscribe** links and
+the **Scrape status** link include it. Anyone who has a link with the token can use it, so share
+links only with people you'd give access to.
+
 ## The calendar web page
 
-Open `http://vnas:8095/` in any browser, on a laptop or a phone.
+Open `https://markham.vincentlfilms.com/?token=…` in any browser, on a laptop or a phone.
 
 - **Views:** Day, Week and List (the next two weeks). Use **Today** and **‹ ›** to move between dates.
   The keys `←` `→` `t` `d` `w` `l` do the same. Phones open in Day view.
@@ -45,15 +57,16 @@ Open `http://vnas:8095/` in any browser, on a laptop or a phone.
 - **Busy days:** when too many sessions overlap, the week view folds them into a **+N more** button.
   Filtering to a few programs and locations makes the week easy to read.
 - **Subscribe:** gives you a calendar-feed link for exactly what you're filtering, ready to paste
-  into a calendar app (see below).
+  into a calendar app (see below). The link uses whichever address you opened the page from, so
+  open the page from the public address to get links that work everywhere.
 
 ## Calendar feed (subscribe in your calendar app)
 
 The easiest way to get a link is the **Subscribe** button on the web page. To build one by hand:
 
 ```
-http://vnas:8095/calendar.ics?category=aquafit&centre=cornell
-http://vnas:8095/calendar.ics?category=aquafit&category=swimming&centre=angus%20glen&days=30
+https://markham.vincentlfilms.com/calendar.ics?category=aquafit&centre=cornell&token=…
+https://markham.vincentlfilms.com/calendar.ics?category=aquafit&category=swimming&centre=angus%20glen&days=30&token=…
 ```
 
 - `category` is a program and `centre` is a location. Both can be repeated.
@@ -69,13 +82,14 @@ http://vnas:8095/calendar.ics?category=aquafit&category=swimming&centre=angus%20
 **Apple Calendar (Mac):** File, then New Calendar Subscription, then paste the link.
 
 **iPhone / iPad:** Settings, then Calendar, then Accounts, then Add Account, then Other, then
-Add Subscribed Calendar, then paste the link. The phone has to be on the home Wi-Fi or on
-Tailscale when it refreshes.
+Add Subscribed Calendar, then paste the link.
 
-**Google Calendar:** Google fetches feeds from its own servers, so it can't reach `vnas`. It only
-works if the service is exposed to the internet, for example with Tailscale Funnel or a
-Cloudflare Tunnel. If you do that, set `API_TOKEN` (below) and add `&token=…` to the link.
-Google also only refreshes subscriptions every several hours, up to a day.
+**Google Calendar:** on a computer, next to **Other calendars** click **+**, then
+**From URL**, then paste the link. It must be a public `https://markham.vincentlfilms.com/…` link;
+Google fetches feeds from its own servers, so it can't reach `vnas`. Google only refreshes
+subscriptions every several hours, up to a day.
+
+Use the public link everywhere and the calendar refreshes wherever you are.
 
 ## JSON API (for apps)
 
@@ -96,10 +110,13 @@ Google also only refreshes subscriptions every several hours, up to a day.
 - `limit`, which defaults to 500 and can go up to 5000.
 
 ```
-curl 'http://vnas:8095/api/sessions?category=aquafit&centre=cornell&limit=3'
-curl 'http://vnas:8095/api/sessions?category=skating&from=2026-11-07&to=2026-11-08'
-curl 'http://vnas:8095/api/categories'
+T=…   # the access token
+curl "https://markham.vincentlfilms.com/api/sessions?category=aquafit&centre=cornell&limit=3&token=$T"
+curl "https://markham.vincentlfilms.com/api/sessions?category=skating&from=2026-11-07&to=2026-11-08&token=$T"
+curl -H "Authorization: Bearer $T" https://markham.vincentlfilms.com/api/categories
 ```
+
+The token works either as `?token=…` or as an `Authorization: Bearer …` header.
 
 Each session looks like this:
 
@@ -132,7 +149,7 @@ come back as `{"error": "…"}`.
 
 ## Checking that it's healthy
 
-Open **`http://vnas:8095/status`** (also linked at the bottom of the calendar's filter panel). It shows:
+Open **`https://markham.vincentlfilms.com/status?token=…`** (also linked at the bottom of the calendar's filter panel). It shows:
 - an overall verdict: Healthy, Partly working, Behind, Failing or Starting up
 - when the last good refresh was and when the next is due
 - how many sessions have registration dates so far
@@ -141,7 +158,7 @@ Open **`http://vnas:8095/status`** (also linked at the bottom of the calendar's 
 - a chart and table of the last 100 refreshes: time taken, programs OK, sessions, registration
   lookups and errors
 
-The same information as JSON is at `http://vnas:8095/api/status` and `/api/runs`. In `/api/status`:
+The same information as JSON is at `/api/status` and `/api/runs`. In `/api/status`:
 - `last_success` is the last good refresh. It should be under 3 hours old.
 - `categories` lists each program, with `ok` and how many sessions it has.
 - `error` is only present when the last attempt had a problem.
@@ -151,13 +168,16 @@ When a refresh fails, the previously saved data stays in place, and the service 
 
 ## Running it on vNas
 
-The container was started over SSH (`ssh vnas`, which goes through Tailscale SSH) with
-`docker run`, not an Unraid template. It shows in Unraid's Docker tab, where you can start, stop
-and view logs, but its settings can't be edited there.
+Two containers run on vNas. They were started over SSH (`ssh vnas`, which goes through Tailscale
+SSH) with `docker run`, not Unraid templates. They show in Unraid's Docker tab, where you can
+start, stop and view logs, but their settings can't be edited there.
+
+**`markham-schedule`**, the service:
 
 ```
 docker run -d --name markham-schedule --restart unless-stopped \
   -p 8095:8080 --user 99:100 \
+  -e API_TOKEN=<token> \
   -v /mnt/user/appdata/markham-schedule:/data \
   ghcr.io/vbuilt/markham-schedule:latest
 ```
@@ -166,6 +186,24 @@ docker run -d --name markham-schedule --restart unless-stopped \
 - `--user 99:100` (Unraid's nobody:users) lets it write to the appdata folder.
 - The data is in `/mnt/user/appdata/markham-schedule/schedule.db`. You can delete it to start
   fresh; the next start re-scrapes, which takes about 4 minutes.
+- **Always keep `-e API_TOKEN=…` when recreating it.** Without it, the public address is open to
+  anyone. Read the current value first with `docker inspect markham-schedule | grep API_TOKEN`.
+- To change the token, recreate the container with a new value. Every saved link and calendar
+  subscription then needs the new token.
+
+**`cloudflared`**, the Cloudflare Tunnel that publishes it:
+
+```
+docker run -d --name cloudflared --restart unless-stopped \
+  cloudflare/cloudflared:latest tunnel --no-autoupdate run --token <tunnel token>
+```
+
+- The tunnel is named **vNas** in the Cloudflare dashboard, under Networking, then Tunnels.
+  Its route sends `markham.vincentlfilms.com` to `http://192.168.68.132:8095`, which is vNas's
+  address on the home network. If vNas's IP changes, update the route there.
+- The tunnel token is on the tunnel's Overview page in Cloudflare. **Rotate token** there
+  invalidates the old one; then recreate this container with the new one.
+- Other vNas apps can be published through the same tunnel: add another route.
 
 **Updating to a new version.** Every push to `main` on GitHub builds a new `latest` image
 automatically. To install it:
@@ -173,8 +211,9 @@ automatically. To install it:
 ```
 ssh vnas
 docker pull ghcr.io/vbuilt/markham-schedule:latest
+docker inspect markham-schedule | grep API_TOKEN   # note the token
 docker rm -f markham-schedule
-docker run -d --name markham-schedule ...   # same command as above
+docker run -d --name markham-schedule ...   # same command as above, same API_TOKEN
 ```
 
 The saved schedule is kept. `GET /api/status` shows the running `version`.
@@ -191,7 +230,7 @@ Add them to the `docker run` command with `-e NAME=value`.
 | `REQUEST_DELAY` | `1s` | Pause between requests to Markham's site |
 | `HORIZON` | `2160h` | How far ahead to scrape (90 days) |
 | `RETENTION` | `336h` | How long past sessions are kept (14 days) |
-| `API_TOKEN` | empty | If set, every request except `/healthz` needs `?token=…` or `Authorization: Bearer …`. Open the web page as `http://vnas:8095/?token=…` |
+| `API_TOKEN` | empty (set on vNas) | If set, every request except `/healthz` needs `?token=…` or `Authorization: Bearer …` |
 | `LISTEN_ADDR` | `:8080` | Listen address inside the container |
 | `DATA_DIR` | `/data` | Where `schedule.db` lives |
 | `REG_LOOKUPS` | `600` | Maximum registration pages fetched per refresh, at `REQUEST_DELAY` spacing. `0` turns registration lookups off |
