@@ -1,1 +1,185 @@
-<!doctype html><title>Sign in · Markham drop-in</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · Markham drop-in</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2312303b'/%3E%3Cpath d='M6 12h20M6 18h20M6 24h20' stroke='%23d9443a' stroke-width='2.5' stroke-dasharray='3 2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --tile: #f3f7f8; --surface: #fff; --ink: #12303b; --ink-2: #4d6670; --grout: #d8e3e6; --grout-2: #ebf1f3;
+  --good: #2f8f4e; --bad: #d9443a; --bar: #1d6fb8; --on-bar: #fff;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --tile: #0e1c22; --surface: #132831; --ink: #e4eef1; --ink-2: #93abb4; --grout: #24414c; --grout-2: #1a333d;
+    --good: #5cc27e; --bad: #ff6a5c; --bar: #6bb7ff; --on-bar: #0e1c22; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--tile); color: var(--ink); font: 15px/1.45 var(--font); }
+a { color: var(--bar); }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.wrap { max-width: 420px; margin: 0 auto; padding: calc(24px + env(safe-area-inset-top)) 16px 48px; }
+.brand { display: inline-block; margin-bottom: 16px; font-weight: 700; font-size: 18px; color: var(--ink); text-decoration: none; }
+.brand span { color: var(--ink-2); font-weight: 400; }
+.card { background: var(--surface); border: 1px solid var(--grout); border-radius: 10px; padding: 20px; }
+label { display: block; font-size: 13px; color: var(--ink-2); margin: 12px 0 4px; }
+input { width: 100%; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--grout); border-radius: 7px; padding: 9px 10px; }
+.btn { display: block; width: 100%; margin-top: 16px; font: 700 15px/1 var(--font); color: var(--on-bar); background: var(--bar); border: 0; border-radius: 8px; padding: 12px 16px; cursor: pointer; text-align: center; text-decoration: none; }
+.btn:hover:not(:disabled) { filter: brightness(1.1); }
+.btn:disabled { background: var(--grout); color: var(--ink-2); cursor: default; }
+.err { color: var(--bad); margin: 12px 0 0; } .err:empty { margin: 0; }
+.ok { margin: 0; padding: 10px 12px; border-left: 4px solid var(--good); background: var(--grout-2); border-radius: 6px; }
+.hint { color: var(--ink-2); font-size: 13px; margin: 12px 0 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--grout); margin: -6px 0 6px; }
+.tabs button { font: inherit; color: var(--ink-2); background: none; border: 0; border-bottom: 3px solid transparent; padding: 6px 12px 8px; cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--bar); }
+.ts:not(:empty) { margin-top: 14px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="brand" href="/">Markham drop-in <span>schedule</span></a>
+  <div class="card">
+    <div class="tabs" role="tablist" aria-label="Account">
+      <button type="button" role="tab" id="inTab" aria-controls="inForm" aria-selected="true">Sign in</button>
+      <button type="button" role="tab" id="upTab" aria-controls="upPanel" aria-selected="false" tabindex="-1">Create account</button>
+    </div>
+
+    <form id="inForm" role="tabpanel" aria-labelledby="inTab" novalidate>
+      <label for="inEmail">Email</label>
+      <input id="inEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
+      <label for="inPw">Password</label>
+      <input id="inPw" type="password" autocomplete="current-password" required>
+      <p class="err" id="inErr" role="alert"></p>
+      <button class="btn" type="submit">Sign in</button>
+      <p class="hint"><a href="/forgot">Forgot your password?</a></p>
+    </form>
+
+    <div id="upPanel" role="tabpanel" aria-labelledby="upTab" hidden>
+      <form id="upForm" novalidate>
+        <label for="upEmail">Email</label>
+        <input id="upEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
+        <label for="upPw">Password (at least 10 characters)</label>
+        <input id="upPw" type="password" autocomplete="new-password" minlength="10" maxlength="200" required>
+        <div class="ts" id="ts"></div>
+        <p class="err" id="upErr" role="alert"></p>
+        <button class="btn" type="submit">Create account</button>
+        <p class="hint">We'll email you a link to confirm your address.</p>
+      </form>
+      <p class="ok" id="upDone" role="status" hidden>Check your email for a link to confirm your account.</p>
+    </div>
+  </div>
+</main>
+<script>
+(() => {
+  "use strict";
+  const qs = new URLSearchParams(location.search);
+  const TOKEN = qs.get("token") || "";
+  const $ = (s) => document.querySelector(s);
+  // tok adds the API token (when the page was opened with one) to a same-site path.
+  const tok = (p) => { if (!TOKEN) return p; const u = new URL(p, location.origin); u.searchParams.set("token", TOKEN); return u.pathname + u.search + u.hash; };
+  const sentence = (s) => { s = String(s); s = s.charAt(0).toUpperCase() + s.slice(1); return /[.!?]$/.test(s) ? s : s + "."; };
+  async function post(path, body) {
+    try {
+      const r = await fetch(tok(path), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await r.json().catch(() => ({}));
+      return r.ok ? { ok: true, data } : { ok: false, status: r.status, error: sentence(data.error || `Something went wrong (HTTP ${r.status})`) };
+    } catch {
+      return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
+    }
+  }
+  document.querySelectorAll('a[href^="/"]').forEach((a) => (a.href = tok(a.getAttribute("href"))));
+
+  // Only same-site paths are followed after signing in.
+  const nextRaw = qs.get("next") || "/";
+  const next = /^\/(?![/\\])/.test(nextRaw) ? nextRaw : "/";
+
+  // ---- Turnstile (only when the server has a site key) ----
+  let tsKey = "", tsLoad = null, tsId = null;
+  async function showTurnstile() {
+    if (!tsKey || tsId !== null) return;
+    tsLoad ||= new Promise((resolve, reject) => {
+      window.onTurnstileLoad = resolve;
+      const s = document.createElement("script");
+      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad";
+      s.async = true; s.onerror = reject;
+      document.head.append(s);
+    });
+    try { await tsLoad; } catch { $("#upErr").textContent = "Couldn't load the robot check. Reload the page to try again."; return; }
+    if (tsId === null) tsId = turnstile.render("#ts", { sitekey: tsKey, theme: "auto" });
+  }
+  const tsToken = () => (tsId !== null ? turnstile.getResponse(tsId) || "" : "");
+  const tsReset = () => { if (tsId !== null) turnstile.reset(tsId); };
+
+  // ---- tabs ----
+  const tabs = [$("#inTab"), $("#upTab")];
+  function select(tab, focus) {
+    tabs.forEach((t) => {
+      const on = t === tab;
+      t.setAttribute("aria-selected", on);
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+    });
+    history.replaceState(null, "", location.pathname + location.search + (tab === tabs[1] ? "#create" : ""));
+    if (tab === tabs[1]) showTurnstile();
+    if (focus) tab.focus();
+  }
+  tabs.forEach((t, i) => {
+    t.onclick = () => select(t);
+    t.onkeydown = (e) => {
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); select(tabs[1 - i], true); }
+    };
+  });
+  const fromHash = () => select(location.hash === "#create" ? tabs[1] : tabs[0]);
+  addEventListener("hashchange", fromHash);
+  fromHash();
+
+  async function busy(form, label, fn) {
+    const b = form.querySelector("button[type=submit]"), was = b.textContent;
+    b.disabled = true; b.textContent = label;
+    try { await fn(); } finally { b.disabled = false; b.textContent = was; }
+  }
+
+  $("#inForm").onsubmit = (e) => {
+    e.preventDefault();
+    const email = $("#inEmail").value.trim(), password = $("#inPw").value, err = $("#inErr");
+    if (!email || !password) { err.textContent = "Enter your email and password."; return; }
+    err.textContent = "";
+    return busy(e.target, "Signing in…", async () => {
+      const r = await post("/api/auth/signin", { email, password });
+      if (r.ok) { location.assign(tok(next)); return; }
+      err.textContent = r.error;
+    });
+  };
+
+  $("#upForm").onsubmit = (e) => {
+    e.preventDefault();
+    const email = $("#upEmail").value.trim(), password = $("#upPw").value, err = $("#upErr");
+    if (!email) { err.textContent = "Enter your email address."; return; }
+    if (password.length < 10 || password.length > 200) { err.textContent = "Password must be 10 to 200 characters."; return; }
+    const turnstileToken = tsToken();
+    if (tsKey && !turnstileToken) { err.textContent = "Wait for the robot check to finish, then try again."; return; }
+    err.textContent = "";
+    return busy(e.target, "Creating account…", async () => {
+      const r = await post("/api/auth/signup", { email, password, turnstile: turnstileToken });
+      tsReset();
+      if (!r.ok) { err.textContent = r.error; return; }
+      $("#upForm").hidden = true;
+      $("#upDone").hidden = false;
+    });
+  };
+
+  fetch(tok("/api/auth/me")).then((r) => r.json()).then((me) => {
+    tsKey = me.turnstile_site_key || "";
+    if ($("#upTab").getAttribute("aria-selected") === "true") showTurnstile();
+  }).catch(() => {});
+})();
+</script>
+</body>
+</html>
