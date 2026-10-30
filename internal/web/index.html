@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Markham drop-in</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2312303b'/%3E%3Cpath d='M6 12h20M6 18h20M6 24h20' stroke='%23d9443a' stroke-width='2.5' stroke-dasharray='3 2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --tile: #f3f7f8;
+  --surface: #ffffff;
+  --ink: #12303b;
+  --ink-2: #4d6670;
+  --grout: #d8e3e6;
+  --grout-2: #ebf1f3;
+  --rope: #d9443a;
+  --focus: #1d6fb8;
+  --chip-mix: 14%;
+  --shadow: 0 10px 30px rgba(18, 48, 59, .18);
+  color-scheme: light;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tile: #0e1c22;
+    --surface: #132831;
+    --ink: #e4eef1;
+    --ink-2: #93abb4;
+    --grout: #24414c;
+    --grout-2: #1a333d;
+    --rope: #ff6a5c;
+    --focus: #6bb7ff;
+    --chip-mix: 28%;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--tile); color: var(--ink);
+  font: 15px/1.4 var(--font);
+  display: grid; grid-template-rows: auto 1fr; overflow: hidden;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* top bar */
+.bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background: var(--surface); border-bottom: 1px solid var(--grout);
+}
+.brand { font-weight: 700; font-size: 18px; margin-right: 8px; white-space: nowrap; }
+.brand span { color: var(--ink-2); font-weight: 400; }
+.btn {
+  border: 1px solid var(--grout); background: var(--surface); border-radius: 8px;
+  padding: 6px 12px; min-height: 36px;
+}
+.btn:hover { background: var(--grout-2); }
+.icon { width: 36px; padding: 0; font-size: 20px; line-height: 1; }
+.range { font-size: 17px; font-weight: 700; min-width: 0; }
+.spacer { flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--grout); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: none; padding: 6px 12px; min-height: 34px; }
+.seg button + button { border-left: 1px solid var(--grout); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.primary:hover { background: var(--ink); opacity: .9; }
+#filtersBtn { display: none; }
+.badge {
+  display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 4px; border-radius: 10px;
+  background: var(--rope); color: #fff; font-size: 12px; line-height: 20px; text-align: center;
+}
+
+/* layout */
+.app { display: grid; grid-template-columns: 280px 1fr; min-height: 0; }
+.rail {
+  border-right: 1px solid var(--grout); background: var(--surface);
+  overflow-y: auto; padding: 14px 14px 24px; display: flex; flex-direction: column; gap: 18px;
+}
+.rail h2 { font-size: 14px; margin: 0 0 6px; color: var(--ink-2); font-weight: 700; display: flex; justify-content: space-between; align-items: baseline; }
+.rail h2 button { border: 0; background: none; color: var(--focus); font-size: 13px; padding: 2px 4px; }
+.search {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--grout); border-radius: 8px; background: var(--tile);
+}
+.opts { list-style: none; margin: 0; padding: 0; }
+.opt label {
+  display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 8px;
+  padding: 5px 6px; border-radius: 6px; cursor: pointer;
+}
+.opt label:hover { background: var(--grout-2); }
+.opt input { margin: 0; width: 16px; height: 16px; accent-color: var(--c, var(--ink)); }
+.opt .n { color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.opt .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--c); margin-right: 6px; vertical-align: 0; }
+.meta { color: var(--ink-2); font-size: 13px; margin-top: auto; }
+.meta a { color: inherit; }
+
+/* calendar grid */
+.main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.days {
+  display: grid; grid-template-columns: 56px repeat(var(--n), minmax(0, 1fr));
+  background: var(--surface); border-bottom: 1px solid var(--grout); position: relative; z-index: 2;
+}
+.dayhead { padding: 8px 4px 6px; text-align: center; border-left: 1px solid var(--grout-2); cursor: pointer; }
+.dayhead .dow { font-size: 12px; color: var(--ink-2); }
+.dayhead .dnum { font-size: 22px; font-weight: 700; line-height: 1.2; display: inline-block; min-width: 36px; border-radius: 18px; }
+.dayhead.today .dnum { background: var(--rope); color: #fff; }
+.dayhead .cnt { font-size: 11px; color: var(--ink-2); }
+.scroller { flex: 1; overflow-y: auto; position: relative; scrollbar-gutter: stable; }
+.days { overflow-y: hidden; scrollbar-gutter: stable; }
+.grid {
+  display: grid; grid-template-columns: 56px repeat(var(--n), minmax(0, 1fr));
+  position: relative; height: calc(var(--hours) * var(--hpx));
+}
+.gutter { position: relative; }
+.gutter span {
+  position: absolute; right: 8px; transform: translateY(-50%);
+  font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.col {
+  position: relative; border-left: 1px solid var(--grout);
+  background-image: linear-gradient(to bottom, var(--grout-2) 1px, transparent 1px);
+  background-size: 100% var(--hpx);
+}
+.col.today { background-color: color-mix(in srgb, var(--rope) 4%, transparent); }
+.ev {
+  position: absolute; overflow: hidden; text-align: left;
+  border: 0; border-left: 3px solid var(--c); border-radius: 4px;
+  background: color-mix(in srgb, var(--c) var(--chip-mix), var(--surface));
+  padding: 2px 4px; font-size: 12px; line-height: 1.25; color: var(--ink);
+  box-shadow: 0 0 0 1px var(--surface);
+}
+.ev:hover, .ev:focus-visible { z-index: 5; box-shadow: 0 0 0 1px var(--surface), var(--shadow); }
+.ev b, .ev .w { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev b { font-weight: 700; }
+.ev .t { white-space: nowrap; }
+.ev .t { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ev .w { color: var(--ink-2); }
+.ev.past { opacity: .55; }
+.more {
+  position: absolute; border: 1px dashed var(--ink-2); border-radius: 4px; background: var(--surface);
+  font-size: 12px; font-weight: 700; padding: 0 4px; color: var(--ink);
+}
+.now { position: absolute; left: 0; right: 0; height: 2px; background: var(--rope); z-index: 4; pointer-events: none; }
+.now::before { content: ""; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--rope); }
+
+/* list view */
+.list { flex: 1; overflow-y: auto; padding: 8px 16px 32px; }
+.list h3 { position: sticky; top: 0; background: var(--tile); margin: 0; padding: 14px 0 6px; font-size: 15px; z-index: 1; }
+.list h3.today { color: var(--rope); }
+.row {
+  display: grid; grid-template-columns: 110px 1fr auto; gap: 12px; align-items: baseline; width: 100%;
+  text-align: left; border: 0; border-left: 3px solid var(--c); border-radius: 4px;
+  background: var(--surface); padding: 8px 12px; margin: 4px 0;
+}
+.row:hover { background: color-mix(in srgb, var(--c) var(--chip-mix), var(--surface)); }
+.row .t { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.row .s { color: var(--ink-2); font-size: 13px; white-space: nowrap; }
+.row .w { display: block; color: var(--ink-2); font-size: 13px; }
+
+.state { padding: 48px 24px; text-align: center; color: var(--ink-2); max-width: 46ch; margin: 0 auto; }
+.state b { color: var(--ink); display: block; font-size: 17px; margin-bottom: 4px; }
+.loading { position: absolute; top: 0; left: 0; right: 0; height: 3px; overflow: hidden; z-index: 6; }
+.loading::after { content: ""; position: absolute; inset: 0; width: 30%; background: var(--focus); animation: slide 1s infinite ease-in-out; }
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(350%); } }
+
+/* dialogs */
+dialog {
+  border: 0; border-radius: 12px; padding: 0; width: min(460px, calc(100vw - 32px));
+  background: var(--surface); color: var(--ink); box-shadow: var(--shadow);
+}
+dialog::backdrop { background: rgba(10, 25, 31, .45); }
+.dlg { padding: 18px 20px 20px; border-top: 6px solid var(--c, var(--ink)); }
+.dlg h2 { margin: 0 34px 4px 0; font-size: 20px; line-height: 1.25; }
+.dlg .when { color: var(--ink-2); margin-bottom: 12px; }
+.dlg dl { display: grid; grid-template-columns: 92px 1fr; gap: 6px 12px; margin: 0 0 12px; }
+.dlg dt { color: var(--ink-2); }
+.dlg dd { margin: 0; }
+.dlg dd a { color: var(--focus); }
+.dlg .desc { white-space: pre-wrap; color: var(--ink-2); font-size: 14px; max-height: 9em; overflow-y: auto; margin: 0 0 14px; }
+.dlg .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.dlg .x { position: absolute; top: 14px; right: 12px; border: 0; background: none; font-size: 22px; width: 34px; height: 34px; border-radius: 17px; }
+.dlg .x:hover { background: var(--grout-2); }
+.tag { display: inline-block; border-left: 3px solid var(--c); padding: 0 6px; margin: 0 4px 2px 0; background: color-mix(in srgb, var(--c) var(--chip-mix), var(--surface)); border-radius: 3px; font-size: 13px; }
+.urlbox { width: 100%; padding: 8px; border: 1px solid var(--grout); border-radius: 8px; background: var(--tile); font-size: 13px; margin: 8px 0 12px; }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.hint { color: var(--ink-2); font-size: 14px; margin: 0 0 4px; }
+
+/* phone */
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; }
+  .rail {
+    position: fixed; left: 0; right: 0; bottom: 0; max-height: 78vh; z-index: 20;
+    border: 0; border-radius: 14px 14px 0 0; box-shadow: var(--shadow);
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    transform: translateY(105%); transition: transform .22s ease;
+  }
+  body.sheet .rail { transform: none; }
+  body.sheet::after { content: ""; position: fixed; inset: 0; background: rgba(10, 25, 31, .35); z-index: 19; }
+  #filtersBtn { display: inline-flex; }
+  .brand span, #weekBtn { display: none; }
+  .bar { gap: 8px; }
+  .range { order: 10; width: 100%; font-size: 16px; }
+  .row { grid-template-columns: 84px 1fr; }
+  .row .s { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail { transition: none; }
+  .loading::after { animation: none; width: 100%; opacity: .5; }
+}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">Markham drop-in <span>schedule</span></div>
+  <button class="btn" id="todayBtn">Today</button>
+  <button class="btn icon" id="prevBtn" aria-label="Previous">‹</button>
+  <button class="btn icon" id="nextBtn" aria-label="Next">›</button>
+  <div class="range" id="range" aria-live="polite"></div>
+  <div class="spacer"></div>
+  <div class="seg" role="group" aria-label="View">
+    <button id="dayBtn" data-view="day">Day</button><button id="weekBtn" data-view="week">Week</button><button id="listBtn" data-view="list">List</button>
+  </div>
+  <button class="btn" id="filtersBtn">Filters<span class="badge" id="fcount" hidden></span></button>
+  <button class="btn primary" id="subBtn">Subscribe</button>
+</header>
+
+<div class="app">
+  <aside class="rail" id="rail" aria-label="Filters">
+    <div>
+      <label class="sr" for="q">Search sessions</label>
+      <input class="search" id="q" type="search" placeholder="Search, e.g. lane swim, pickleball" autocomplete="off">
+    </div>
+    <section>
+      <h2>Programs <button id="clearCats" hidden>Clear</button></h2>
+      <ul class="opts" id="cats"></ul>
+    </section>
+    <section>
+      <h2>Locations <button id="clearCentres" hidden>Clear</button></h2>
+      <ul class="opts" id="centres"></ul>
+    </section>
+    <div class="meta" id="meta"></div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<dialog id="detail"></dialog>
+<dialog id="moreDlg"></dialog>
+<dialog id="subDlg"></dialog>
+
+<script>
+(() => {
+  "use strict";
+  const TZ = "America/Toronto";
+  const qs = new URLSearchParams(location.search);
+  const TOKEN = qs.get("token") || "";
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ---- Toronto date helpers (dates are "YYYY-MM-DD" keys) ----
+  const keyFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+  const hmFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const timeFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, hour: "numeric", minute: "2-digit" });
+  const dayKey = (d) => keyFmt.format(d);
+  const minutes = (d) => { const p = hmFmt.formatToParts(d); const g = (t) => +p.find((x) => x.type === t).value; return g("hour") * 60 + g("minute"); };
+  const kd = (k) => new Date(k + "T12:00:00Z");
+  const addDays = (k, n) => { const d = kd(k); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const dow = (k) => kd(k).getUTCDay();
+  const fmtK = (k, o) => new Intl.DateTimeFormat("en-CA", Object.assign({ timeZone: "UTC" }, o)).format(kd(k));
+  const tShort = (d) => timeFmt.format(d).replace(/\s?([ap])\.?m\.?/i, (_, a) => a.toLowerCase()).replace(":00", "");
+  const tRange = (s) => s.all_day ? "All day" : `${tShort(s._s)} – ${tShort(s._e)}`;
+  const shortCentre = (c) => (c || "").replace(/\s+Community Centre$/i, " CC").replace(/\s+Centre$/i, "");
+
+  // ---- program colours: keyed to the activity, fallback palette ----
+  const KEYED = [
+    [/aquafit/i, "#0f9e96"], [/swim/i, "#1d6fb8"], [/skat/i, "#5f7fa3"], [/tennis/i, "#8f9a14"],
+    [/cardio/i, "#d9443a"], [/mind/i, "#7a5cc2"], [/strength/i, "#3f8f5a"], [/total body/i, "#c2417a"],
+    [/sport/i, "#d9732b"], [/55\+/i, "#9a6b2f"], [/^art$/i, "#b3407d"], [/sensory|playground/i, "#c08a12"],
+  ];
+  const SPARE = ["#3d7ea6", "#a35d2f", "#6b8e23", "#8e44ad", "#c0392b", "#16a085"];
+  const colors = new Map();
+  const colorOf = (cat) => {
+    if (!colors.has(cat)) {
+      const k = KEYED.find(([re]) => re.test(cat));
+      colors.set(cat, k ? k[1] : SPARE[colors.size % SPARE.length]);
+    }
+    return colors.get(cat);
+  };
+
+  // ---- state ----
+  const narrow = () => matchMedia("(max-width: 760px)").matches;
+  const saved = (() => { try { return JSON.parse(localStorage.getItem("mds.v1") || "{}"); } catch { return {}; } })();
+  const state = {
+    view: saved.view || (narrow() ? "day" : "week"),
+    anchor: dayKey(new Date()),
+    cats: new Set(saved.cats || []),
+    centres: new Set(saved.centres || []),
+    q: "",
+  };
+  if (narrow() && state.view === "week") state.view = "day";
+  const persist = () => { try { localStorage.setItem("mds.v1", JSON.stringify({ view: state.view, cats: [...state.cats], centres: [...state.centres] })); } catch {} };
+
+  const withToken = (p) => { if (TOKEN) p.set("token", TOKEN); return p; };
+  const api = async (path, params) => {
+    const r = await fetch(path + "?" + withToken(params || new URLSearchParams()));
+    if (!r.ok) throw new Error(`${path} returned HTTP ${r.status}`);
+    return r.json();
+  };
+
+  function range() {
+    if (state.view === "week") { const s = addDays(state.anchor, -dow(state.anchor)); return [s, addDays(s, 6)]; }
+    if (state.view === "list") return [state.anchor, addDays(state.anchor, 13)];
+    return [state.anchor, state.anchor];
+  }
+  function filterParams() {
+    const p = new URLSearchParams();
+    state.cats.forEach((c) => p.append("category", c));
+    state.centres.forEach((c) => p.append("centre", c));
+    if (state.q) p.set("q", state.q);
+    return p;
+  }
+
+  // ---- filters rail ----
+  let catList = [], centreList = [];
+  function renderOpts(el, items, set, withColor) {
+    el.innerHTML = items.map((it) => {
+      const c = withColor ? colorOf(it.name) : "";
+      const label = withColor ? `<span class="sw"></span>${esc(it.name)}` : esc(it.name.replace(/\s+Community Centre$/i, ""));
+      return `<li class="opt" style="${withColor ? "--c:" + c : ""}"><label><input type="checkbox" value="${esc(it.name)}" ${set.has(it.name) ? "checked" : ""}><span>${label}</span><span class="n">${it.count}</span></label></li>`;
+    }).join("");
+  }
+  function syncFilterChrome() {
+    const n = state.cats.size + state.centres.size + (state.q ? 1 : 0);
+    $("#fcount").hidden = n === 0; $("#fcount").textContent = n;
+    $("#clearCats").hidden = state.cats.size === 0;
+    $("#clearCentres").hidden = state.centres.size === 0;
+  }
+  function onToggle(set) {
+    return (e) => {
+      if (e.target.type !== "checkbox") return;
+      e.target.checked ? set.add(e.target.value) : set.delete(e.target.value);
+      persist(); syncFilterChrome(); load();
+    };
+  }
+  $("#cats").addEventListener("change", onToggle(state.cats));
+  $("#centres").addEventListener("change", onToggle(state.centres));
+  $("#clearCats").onclick = () => { state.cats.clear(); renderOpts($("#cats"), catList, state.cats, true); persist(); syncFilterChrome(); load(); };
+  $("#clearCentres").onclick = () => { state.centres.clear(); renderOpts($("#centres"), centreList, state.centres, false); persist(); syncFilterChrome(); load(); };
+  let qTimer;
+  $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value.trim(); syncFilterChrome(); load(); }, 250); });
+
+  // ---- loading ----
+  let sessions = [], loadSeq = 0, loadErr = null, loading = false;
+  async function load() {
+    const seq = ++loadSeq;
+    const [from, to] = range();
+    const p = filterParams(); p.set("from", from); p.set("to", to); p.set("limit", "5000");
+    loading = true; render();
+    try {
+      const d = await api("/api/sessions", p);
+      if (seq !== loadSeq) return;
+      sessions = d.sessions.map((s) => Object.assign(s, { _s: new Date(s.start), _e: new Date(s.end) }));
+      loadErr = null;
+    } catch (e) {
+      if (seq !== loadSeq) return;
+      sessions = []; loadErr = e.message;
+    }
+    loading = false; render();
+  }
+
+  // ---- rendering ----
+  function renderChrome() {
+    const [a, b] = range();
+    let label;
+    if (state.view === "day") label = fmtK(a, { weekday: "long", month: "long", day: "numeric" });
+    else {
+      const sameMonth = a.slice(0, 7) === b.slice(0, 7);
+      label = `${fmtK(a, { month: "long", day: "numeric" })} – ${fmtK(b, sameMonth ? { day: "numeric" } : { month: "long", day: "numeric" })}, ${b.slice(0, 4)}`;
+    }
+    $("#range").textContent = label;
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === state.view)));
+  }
+
+  function render() {
+    renderChrome();
+    const main = $("#main");
+    if (loadErr) {
+      main.innerHTML = `<div class="state"><b>Couldn't load the schedule</b>${esc(loadErr)}. Check that the server is running, then <a href="" id="retry">try again</a>.</div>`;
+      $("#retry").onclick = (e) => { e.preventDefault(); load(); };
+      return;
+    }
+    if (state.view === "list") renderList(main); else renderGrid(main);
+    if (loading) main.insertAdjacentHTML("afterbegin", '<div class="loading" aria-hidden="true"></div>');
+  }
+
+  function emptyMsg() {
+    const span = state.view === "day" ? "this day" : state.view === "week" ? "this week" : "the next two weeks";
+    const filtered = state.cats.size || state.centres.size || state.q;
+    return `<div class="state"><b>No sessions ${span}</b>${filtered ? "Nothing matches these filters. Try another date or clear a filter." : "Markham hasn't published anything for these dates yet."}</div>`;
+  }
+
+  function renderList(main) {
+    if (!loading && sessions.length === 0) { main.innerHTML = emptyMsg(); return; }
+    const today = dayKey(new Date());
+    const byDay = new Map();
+    sessions.forEach((s) => { const k = dayKey(s._s); (byDay.get(k) || byDay.set(k, []).get(k)).push(s); });
+    let h = '<div class="list">';
+    byDay.forEach((list, k) => {
+      h += `<h3 class="${k === today ? "today" : ""}">${fmtK(k, { weekday: "long", month: "long", day: "numeric" })}${k === today ? " (today)" : ""}</h3>`;
+      list.forEach((s) => {
+        h += `<button class="row" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")}"><span class="t">${tRange(s)}</span><span><b>${esc(s.name)}</b><span class="w">${esc(s.centre)}${s.facility ? " · " + esc(s.facility) : ""}</span></span><span class="s">${esc(s.spots)}</span></button>`;
+      });
+    });
+    main.innerHTML = h + "</div>";
+  }
+
+  function layoutDay(list, maxCols) {
+    // Group transitively-overlapping sessions, give each a column, and fold
+    // overflow beyond maxCols into "+N" chips bucketed by start hour.
+    const items = list.filter((s) => !s.all_day).map((s) => ({ s, a: minutes(s._s), b: Math.max(minutes(s._e), minutes(s._s) + 20) }));
+    items.sort((x, y) => x.a - y.a || y.b - x.b);
+    const placed = [], hidden = [];
+    let cluster = [], clusterEnd = -1;
+    const flush = () => {
+      const ends = [];
+      cluster.forEach((it) => {
+        let c = ends.findIndex((e) => e <= it.a);
+        if (c < 0) { c = ends.length; ends.push(0); }
+        ends[c] = it.b; it.col = c;
+      });
+      const n = ends.length, cols = Math.min(n, maxCols);
+      cluster.forEach((it) => {
+        if (n > maxCols && it.col >= maxCols - 1) hidden.push(Object.assign(it, { cols }));
+        else placed.push(Object.assign(it, { cols }));
+      });
+      cluster = []; clusterEnd = -1;
+    };
+    items.forEach((it) => { if (cluster.length && it.a >= clusterEnd) flush(); cluster.push(it); clusterEnd = Math.max(clusterEnd, it.b); });
+    flush();
+    const buckets = new Map();
+    hidden.forEach((it) => { const h = Math.floor(it.a / 60); const b = buckets.get(h) || { h, cols: it.cols, items: [] }; b.items.push(it.s); buckets.set(h, b); });
+    return { placed, more: [...buckets.values()] };
+  }
+
+  function renderGrid(main) {
+    const [a, b] = range();
+    const days = []; for (let k = a; k <= b; k = addDays(k, 1)) days.push(k);
+    const today = dayKey(new Date());
+    const byDay = new Map(days.map((k) => [k, []]));
+    sessions.forEach((s) => { const k = dayKey(s._s); if (byDay.has(k)) byDay.get(k).push(s); });
+
+    let h0 = 7, h1 = 22;
+    sessions.forEach((s) => { if (s.all_day) return; h0 = Math.min(h0, Math.floor(minutes(s._s) / 60)); h1 = Math.max(h1, Math.ceil(minutes(s._e) / 60) || 24); });
+    h1 = Math.min(Math.max(h1, h0 + 1), 24);
+    const hpx = state.view === "day" ? 64 : 52;
+    const maxCols = state.view === "day" ? (narrow() ? 3 : 6) : 3;
+    const y = (m) => ((m - h0 * 60) / 60) * hpx;
+
+    let head = `<div class="days" style="--n:${days.length}"><div></div>`;
+    days.forEach((k) => {
+      const n = byDay.get(k).length;
+      head += `<div class="dayhead ${k === today ? "today" : ""}" data-day="${k}" title="Open day view"><div class="dow">${fmtK(k, { weekday: "short" })}</div><div class="dnum">${+k.slice(8)}</div><div class="cnt">${n ? n + (n === 1 ? " session" : " sessions") : "&nbsp;"}</div></div>`;
+    });
+    head += "</div>";
+
+    let grid = `<div class="grid" style="--n:${days.length};--hours:${h1 - h0};--hpx:${hpx}px"><div class="gutter">`;
+    for (let h = h0 + 1; h < h1; h++) grid += `<span style="top:${(h - h0) * hpx}px">${h === 12 ? "12 pm" : h > 12 ? h - 12 + " pm" : h + " am"}</span>`;
+    grid += "</div>";
+    const nowMs = Date.now();
+    days.forEach((k) => {
+      grid += `<div class="col ${k === today ? "today" : ""}">`;
+      const { placed, more } = layoutDay(byDay.get(k), maxCols);
+      placed.forEach(({ s, a: sa, b: sb, col, cols }) => {
+        const top = y(sa), height = Math.max(y(sb) - top - 2, 18);
+        const w = 100 / cols;
+        const tall = height >= 44;
+        grid += `<button class="ev ${s._e.getTime() < nowMs ? "past" : ""}" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")};top:${top}px;height:${height}px;left:calc(${col * w}% + 1px);width:calc(${w}% - 3px)" title="${esc(s.name)}, ${tRange(s)}, ${esc(s.centre)}">`
+          + `<b>${esc(s.name.replace(/^Drop-?\s?In\s*:?\s*/i, ""))}</b><span class="t">${tShort(s._s)}</span>${tall ? `<span class="w">${esc(shortCentre(s.centre))}</span>` : ""}</button>`;
+      });
+      more.forEach((m) => {
+        const w = 100 / m.cols;
+        grid += `<button class="more" data-more="${k}|${m.h}" style="top:${y(m.h * 60) + 2}px;height:20px;left:calc(${(m.cols - 1) * w}% + 1px);width:calc(${w}% - 3px)">+${m.items.length} more</button>`;
+        moreStore.set(`${k}|${m.h}`, m.items);
+      });
+      if (k === today) { const m = minutes(new Date()); if (m >= h0 * 60 && m <= h1 * 60) grid += `<div class="now" style="top:${y(m)}px"></div>`; }
+      grid += "</div>";
+    });
+    grid += "</div>";
+
+    const body = !loading && sessions.length === 0 ? emptyMsg() : "";
+    const prevScroll = main.querySelector(".scroller")?.scrollTop;
+    main.innerHTML = head + `<div class="scroller">${body}${body ? "" : grid}</div>`;
+    const sc = main.querySelector(".scroller");
+    if (prevScroll != null && renderGrid.lastKey === a + state.view) sc.scrollTop = prevScroll;
+    else {
+      const first = sessions.filter((s) => !s.all_day).map((s) => minutes(s._s));
+      const target = days.includes(today) ? Math.max(minutes(new Date()) - 60, 0) : (first.length ? Math.min(...first) : h0 * 60);
+      sc.scrollTop = Math.max(y(target) - 8, 0);
+    }
+    renderGrid.lastKey = a + state.view;
+  }
+  const moreStore = new Map();
+
+  // ---- dialogs ----
+  const byId = (id) => sessions.find((s) => s.id === id);
+  function openDetail(s) {
+    const c = colorOf(s.categories[0] || "");
+    const addr = [s.address?.street, s.address?.city].filter(Boolean).join(", ");
+    const maps = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent([s.centre, addr].filter(Boolean).join(", "));
+    const asOf = s.scraped_at ? ` (as of ${tShort(new Date(s.scraped_at))})` : "";
+    const row = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : "";
+    const d = $("#detail");
+    d.innerHTML = `<div class="dlg" style="--c:${c}"><button class="x" aria-label="Close" value="close">×</button>
+      <h2>${esc(s.name)}</h2>
+      <div class="when">${fmtK(dayKey(s._s), { weekday: "long", month: "long", day: "numeric" })}, ${tRange(s)}</div>
+      <dl>
+        ${row("Program", s.categories.map((x) => `<span class="tag" style="--c:${colorOf(x)}">${esc(x)}</span>`).join(""))}
+        ${row("Location", `${esc(s.centre)}${s.facility ? `<br><span style="color:var(--ink-2)">${esc(s.facility)}</span>` : ""}${addr ? `<br><a href="${maps}" target="_blank" rel="noopener">${esc(addr)}</a>` : ""}`)}
+        ${row("Spots", s.spots ? esc(s.spots) + asOf : "")}
+        ${row("Ages", esc(s.age))}
+        ${row("Price", esc(s.price))}
+        ${row("Course ID", esc(s.course_id))}
+      </dl>
+      ${s.description ? `<p class="desc">${esc(s.description)}</p>` : ""}
+      <div class="acts">${s.booking_url ? `<a class="btn primary" href="${esc(s.booking_url)}" target="_blank" rel="noopener">Open booking page</a>` : ""}<button class="btn" value="close">Close</button></div></div>`;
+    d.showModal();
+  }
+  function openMore(items) {
+    const d = $("#moreDlg");
+    d.innerHTML = `<div class="dlg"><button class="x" aria-label="Close" value="close">×</button><h2>${items.length} more sessions</h2>
+      <div class="when">${fmtK(dayKey(items[0]._s), { weekday: "long", month: "long", day: "numeric" })}</div>
+      ${items.map((s) => `<button class="row" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")}"><span class="t">${tRange(s)}</span><span><b>${esc(s.name)}</b><span class="w">${esc(s.centre)}</span></span></button>`).join("")}</div>`;
+    d.showModal();
+  }
+  function openSubscribe() {
+    const p = withToken(filterParams());
+    const http = `${location.origin}/calendar.ics${p.toString() ? "?" + p : ""}`;
+    const webcal = http.replace(/^https?:/, "webcal:");
+    const what = [state.cats.size ? [...state.cats].join(", ") : "all programs", state.centres.size ? [...state.centres].map(shortCentre).join(", ") : "all locations"].join(" at ");
+    const d = $("#subDlg");
+    d.innerHTML = `<div class="dlg"><button class="x" aria-label="Close" value="close">×</button><h2>Subscribe to this calendar</h2>
+      <p class="hint">Adds ${esc(what)}${state.q ? ` matching “${esc(state.q)}”` : ""} to your calendar app. It updates on its own as Markham changes the schedule.</p>
+      <input class="urlbox" id="subUrl" readonly value="${esc(http)}" aria-label="Calendar link">
+      <div class="acts"><button class="btn primary" id="copyBtn">Copy link</button><a class="btn" href="${esc(webcal)}">Open in Calendar app</a><button class="btn" value="close">Close</button></div>
+      <p class="hint" style="margin-top:12px">Google Calendar fetches links from the internet, so it can only use this link if this server is reachable from outside your network.</p></div>`;
+    d.showModal();
+    $("#copyBtn").onclick = async () => {
+      const inp = $("#subUrl");
+      try { await navigator.clipboard.writeText(inp.value); } catch { inp.select(); document.execCommand("copy"); }
+      $("#copyBtn").textContent = "Copied";
+    };
+  }
+  document.querySelectorAll("dialog").forEach((d) => {
+    d.addEventListener("click", (e) => {
+      if (e.target === d || e.target.value === "close") d.close();
+      const id = e.target.closest("[data-id]")?.dataset.id;
+      if (id && d.id === "moreDlg") { d.close(); openDetail(byId(id)); }
+    });
+  });
+
+  // ---- events ----
+  $("#main").addEventListener("click", (e) => {
+    const ev = e.target.closest("[data-id]"); if (ev) return openDetail(byId(ev.dataset.id));
+    const more = e.target.closest("[data-more]"); if (more) return openMore(moreStore.get(more.dataset.more));
+    const head = e.target.closest("[data-day]"); if (head && state.view === "week") { state.anchor = head.dataset.day; setView("day"); }
+  });
+  const step = () => (state.view === "week" ? 7 : state.view === "list" ? 14 : 1);
+  $("#prevBtn").onclick = () => { state.anchor = addDays(state.anchor, -step()); load(); };
+  $("#nextBtn").onclick = () => { state.anchor = addDays(state.anchor, step()); load(); };
+  $("#todayBtn").onclick = () => { state.anchor = dayKey(new Date()); load(); };
+  function setView(v) { state.view = v; persist(); load(); }
+  document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
+  $("#subBtn").onclick = openSubscribe;
+  $("#filtersBtn").onclick = () => document.body.classList.toggle("sheet");
+  document.addEventListener("click", (e) => { if (document.body.classList.contains("sheet") && !e.target.closest("#rail,#filtersBtn")) document.body.classList.remove("sheet"); });
+  document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input") || document.querySelector("dialog[open]")) return;
+    const map = { ArrowLeft: "#prevBtn", ArrowRight: "#nextBtn", t: "#todayBtn", d: "#dayBtn", w: "#weekBtn", l: "#listBtn" };
+    if (map[e.key]) { e.preventDefault(); $(map[e.key]).click(); }
+  });
+  setInterval(() => { if (state.view !== "list" && !document.hidden) render(); }, 60000);
+
+  // ---- boot ----
+  (async () => {
+    syncFilterChrome();
+    load();
+    try {
+      const [cats, centres, status] = await Promise.all([api("/api/categories"), api("/api/centres"), api("/api/status")]);
+      catList = cats; centreList = centres;
+      renderOpts($("#cats"), catList, state.cats, true);
+      renderOpts($("#centres"), centreList, state.centres, false);
+      const when = status.updated_at ? new Date(status.updated_at) : null;
+      $("#meta").innerHTML = when
+        ? `Schedule from Markham's booking site, updated ${fmtK(dayKey(when), { month: "short", day: "numeric" })} at ${tShort(when)}.`
+        : "The first schedule download is still running. Check back in a few minutes.";
+      render();
+    } catch (e) {
+      $("#meta").textContent = "Couldn't load the filter lists: " + e.message;
+    }
+  })();
+})();
+</script>
+</body>
+</html>

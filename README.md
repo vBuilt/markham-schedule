@@ -17,6 +17,7 @@ between requests. API requests never trigger a scrape.
 | `GET /api/categories` | `[{name, count}]` |
 | `GET /api/centres` | `[{name, address, count}]` |
 | `GET /api/status` | Last attempt/success, per-category results, version |
+| `GET /` | Calendar web page: week/day/list views, filter by program and location, subscribe link for the current filters |
 | `GET /healthz` | Liveness (never needs the token) |
 
 Filters are case-insensitive substring matches. Repeated params are ORed within a filter and ANDed across filters.

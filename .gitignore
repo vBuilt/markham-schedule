@@ -5,3 +5,4 @@
 .superpowers/
 /markham-schedule
 .DS_Store
+.playwright-mcp/

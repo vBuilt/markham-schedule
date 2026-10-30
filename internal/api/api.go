@@ -15,6 +15,7 @@ import (
 	"github.com/vBuilt/markham-schedule/internal/ics"
 	"github.com/vBuilt/markham-schedule/internal/schedule"
 	"github.com/vBuilt/markham-schedule/internal/store"
+	"github.com/vBuilt/markham-schedule/internal/web"
 )
 
 // Store is the read-side of the data store used by the handlers.
@@ -61,6 +62,7 @@ func New(st Store, o Options) http.Handler {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte("ok\n"))
 	})
+	mux.HandleFunc("GET /{$}", s.auth(web.Index))
 	mux.HandleFunc("GET /calendar.ics", s.auth(s.calendar))
 	mux.HandleFunc("GET /api/sessions", s.auth(s.sessions))
 	mux.HandleFunc("GET /api/categories", s.auth(s.categories))

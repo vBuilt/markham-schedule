@@ -213,3 +213,25 @@ func TestStoreError(t *testing.T) {
 		}
 	}
 }
+
+func TestIndexPage(t *testing.T) {
+	h := newH(&fakeStore{}, Options{})
+	w := get(h, "/")
+	if w.Code != 200 || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/html") {
+		t.Fatal(w.Code, w.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(w.Body.String(), "<title>Markham drop-in</title>") {
+		t.Fatal("index page not served")
+	}
+	if w := get(h, "/nope"); w.Code != 404 {
+		t.Fatal("unknown path should 404, got", w.Code)
+	}
+
+	ht := newH(&fakeStore{}, Options{Token: "sekret"})
+	if w := get(ht, "/"); w.Code != 401 {
+		t.Fatal("index without token should 401, got", w.Code)
+	}
+	if w := get(ht, "/?token=sekret"); w.Code != 200 {
+		t.Fatal(w.Code)
+	}
+}
