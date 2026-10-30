@@ -9,9 +9,11 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
     -o /out/markham-schedule ./cmd/markham-schedule
+RUN mkdir /data
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/markham-schedule /markham-schedule
+COPY --from=build --chown=65532:65532 /data /data
 ENV DATA_DIR=/data
 VOLUME /data
 EXPOSE 8080

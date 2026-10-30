@@ -57,6 +57,7 @@ CLI flags: `-once` (one refresh, print a per-category table, exit non-zero if ev
    chown 65532:65532 /mnt/user/appdata/markham-schedule
    ```
    Alternatively, add `--user 99:100` (Unraid's nobody:users) to **Extra Parameters** and skip the chown.
+   (This applies to bind mounts only; named Docker volumes work out of the box because the image ships `/data` owned by 65532.)
 2. Docker tab, **Add Container**:
    - Repository: `ghcr.io/vbuilt/markham-schedule:latest`
    - Port: container `8080`, host `8080` (TCP)
