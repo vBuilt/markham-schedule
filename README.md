@@ -194,8 +194,9 @@ How it works:
 - **Sessions:** a cookie keeps you signed in for 30 days from your last visit. **Sign out** ends it.
   Only a hash of the cookie and of every emailed link is stored, and passwords are stored hashed
   (argon2id).
-- **Limits:** repeated wrong passwords lock that email and address out for a while, and the
-  sign-up, reset and resend emails are rate limited.
+- **Limits:** repeated wrong passwords lock that email and address out for a while, each
+  address gets a capped number of sign-in attempts, and the sign-up, reset and resend emails are
+  rate limited.
 - **Bot check:** Cloudflare Turnstile guards **Create account** and **Forgot password**.
 - Accounts live in the same `schedule.db` as the schedule, so they survive updates.
 
@@ -204,7 +205,8 @@ that up once; see [Setting up accounts](#setting-up-accounts-owner-one-time-step
 
 ## Checking that it's healthy
 
-Open **`https://markham.vincentlfilms.com/status`** (also linked at the bottom of the calendar's filter panel). It shows:
+Open **`https://markham.vincentlfilms.com/status`** (also linked at the bottom of the calendar's
+filter panel). It shows:
 - an overall verdict: Healthy, Partly working, Behind, Failing or Starting up
 - when the last good refresh was and when the next is due
 - how many sessions have registration dates so far
@@ -316,8 +318,9 @@ verified domain, add `-e MAIL_FROM="Name <address@vincentlfilms.com>"`.
 1. In the Cloudflare dashboard, open **Turnstile** (in the left menu), then **Add widget**
    (or **Add site**).
 2. Name it `markham-schedule`.
-3. Under **Hostname**, add `markham.vincentlfilms.com`, then add `vnas` as well so the sign-up form
-   also works at `http://vnas:8095`.
+3. Under **Hostname**, add `markham.vincentlfilms.com`. Adding `vnas` as well is optional: it's
+   only needed for signing up from `http://vnas:8095`. If Cloudflare won't accept it, skip it and
+   sign up through the public address instead.
 4. Choose **Managed** as the widget mode, then **Create**.
 5. Copy the **Site Key** (this is `TURNSTILE_SITE_KEY`) and the **Secret Key** (this is
    `TURNSTILE_SECRET`).
@@ -367,8 +370,8 @@ Add them to the `docker run` command with `-e NAME=value`.
 | `BASE_URL` | empty | The public address, used for links in emails, e.g. `https://markham.vincentlfilms.com`. Must be a full URL. Also accepted as the site's own address when checking that sign-in requests come from the site. If empty, the service picks a local default |
 | `RESEND_API_KEY` | empty | Resend API key for sending email. If empty, emails are written to the log instead of sent |
 | `MAIL_FROM` | `Markham Drop-In <no-reply@vincentlfilms.com>` | Sender of account emails. Its domain must be verified in Resend |
-| `TURNSTILE_SITE_KEY` | empty | Cloudflare Turnstile site key, shown to the browser. With the secret, turns the bot check on. If either is empty the check is skipped and a warning is logged at startup |
-| `TURNSTILE_SECRET` | empty | Cloudflare Turnstile secret key, used by the server to check answers |
+| `TURNSTILE_SITE_KEY` | empty | Cloudflare Turnstile site key, shown to the browser. Set it together with `TURNSTILE_SECRET`: the bot check is on only when both are set. If both are empty the check is off, pages get no site key, and a warning is logged at startup. Setting just one is a startup error |
+| `TURNSTILE_SECRET` | empty | Cloudflare Turnstile secret key, used by the server to check answers. Set both or neither (see `TURNSTILE_SITE_KEY`) |
 | `TRUSTED_PROXIES` | `172.16.0.0/12` | Comma-separated networks whose `CF-Connecting-IP` and `X-Forwarded-Proto` headers are believed (Docker's range, where `cloudflared` connects from). Used for rate limits and the cookie's `Secure` flag |
 
 Durations use Go syntax (`30m`, `3h`). The timezone is always America/Toronto.

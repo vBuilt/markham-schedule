@@ -58,7 +58,8 @@ Anyone from the general public may sign up.
 - **Reset:** link lasts 1 hour and works once. Setting the new password signs the user out
   everywhere (all their sessions deleted) and signs them in on the current device.
 - **Rate limits:** sign-in failures slow down per email and per client IP (e.g. 5 failures →
-  locked 15 minutes for that pair); sign-up, reset and resend-confirmation are limited per IP and
+  locked 15 minutes for that pair), and each IP gets at most 30 sign-in attempts per 15 minutes
+  whatever the email; sign-up, reset and resend-confirmation are limited per IP and
   per email (e.g. at most 3 emails per address per hour). In-memory counters are fine.
 - **No account enumeration:** forgot-password always says "If that email has an account, we've
   sent a link". Sign-up with an existing email says the same thing as a new sign-up ("check your
@@ -91,13 +92,22 @@ Anyone from the general public may sign up.
   a password they know and inherit the account when the victim confirms.) **Confirming** also
   signs out every session that existed before. For a confirmed address, repeat sign-up sends the
   "someone tried to sign up; here's a reset link" note and changes nothing.
+- **Resetting the password also confirms the account**, since opening the emailed link proves
+  ownership of the address just as a confirmation link does.
+- **Repeat sign-up for an unconfirmed address, and resending the confirmation email,** restart
+  that account's 7-day purge clock.
+- **Known, accepted:** sign-up followed by sign-in can reveal whether an address already has a
+  confirmed account (sign-in succeeds only if the sign-up took effect). Each probe needs a bot
+  check, is limited to 3 per address and 10 per IP per hour, and emails the address's owner, so
+  this is accepted rather than giving up sign-in before confirmation.
 - **Changing or resetting the password** cancels any other outstanding reset links. The current
   password checks in change-password and delete-account are rate limited like sign-in.
 - **Cleanup:** a background job deletes unconfirmed accounts older than 7 days and expired
   sessions and tokens, once an hour or so.
 - **Resend failures** are logged; the user sees the usual neutral message (no retry queue). The
   account page's "Resend confirmation email" is the recovery path.
-- **Turnstile:** if the keys are empty, the service logs a warning at startup that bot protection
+- **Turnstile:** the keys are a pair: it is on only when both are set, and setting just one is a
+  startup error. If both are empty, the service logs a warning at startup that bot protection
   is off. If Cloudflare's siteverify can't be reached, the form fails closed with "Couldn't check
   you're not a robot. Try again."
 - **Trusted proxy headers.** `CF-Connecting-IP` and `X-Forwarded-Proto` are trusted only when the
