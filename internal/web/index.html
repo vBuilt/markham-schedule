@@ -98,6 +98,16 @@ button { cursor: pointer; }
 .opt input { margin: 0; width: 16px; height: 16px; accent-color: var(--c, var(--ink)); }
 .opt .n { color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .opt .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--c); margin-right: 6px; vertical-align: 0; }
+.prog > .line { display: grid; grid-template-columns: 1fr 30px; align-items: center; }
+.prog .exp {
+  border: 0; background: none; width: 30px; height: 30px; border-radius: 6px; color: var(--ink-2);
+  font-size: 13px; transition: transform .15s ease;
+}
+.prog .exp:hover { background: var(--grout-2); }
+.prog .exp[aria-expanded="true"] { transform: rotate(90deg); }
+.acts-list { list-style: none; margin: 0 0 6px 18px; padding: 0 0 0 8px; border-left: 2px solid color-mix(in srgb, var(--c) 45%, transparent); }
+.acts-list label { grid-template-columns: 16px 1fr auto; padding: 3px 6px; font-size: 14px; }
+.acts-list input { width: 14px; height: 14px; }
 .meta { color: var(--ink-2); font-size: 13px; margin-top: auto; }
 .meta a { color: inherit; }
 
@@ -300,11 +310,13 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     view: saved.view || (narrow() ? "day" : "week"),
     anchor: dayKey(new Date()),
     cats: new Set(saved.cats || []),
+    acts: new Set(saved.acts || []),
+    open: new Set(),
     centres: new Set(saved.centres || []),
     q: "",
   };
   if (narrow() && state.view === "week") state.view = "day";
-  const persist = () => { try { localStorage.setItem("mds.v1", JSON.stringify({ view: state.view, cats: [...state.cats], centres: [...state.centres] })); } catch {} };
+  const persist = () => { try { localStorage.setItem("mds.v1", JSON.stringify({ view: state.view, cats: [...state.cats], acts: [...state.acts], centres: [...state.centres] })); } catch {} };
 
   const withToken = (p) => { if (TOKEN) p.set("token", TOKEN); return p; };
   const api = async (path, params) => {
@@ -321,13 +333,43 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   function filterParams() {
     const p = new URLSearchParams();
     state.cats.forEach((c) => p.append("category", c));
+    state.acts.forEach((a) => p.append("activity", a));
     state.centres.forEach((c) => p.append("centre", c));
     if (state.q) p.set("q", state.q);
     return p;
   }
 
   // ---- filters rail ----
-  let catList = [], centreList = [];
+  let catList = [], centreList = [], actsBy = new Map();
+  const actLabel = (n) => n.replace(/^Drop-?\s?In\s*:?\s*/i, "");
+  const actsOf = (cat) => (actsBy.get(cat) || []).map((a) => a.name);
+  const progState = (cat) => state.cats.has(cat) ? "all" : actsOf(cat).some((n) => state.acts.has(n)) ? "some" : "none";
+  function renderPrograms() {
+    const el = $("#cats");
+    el.innerHTML = catList.map((it) => {
+      const acts = actsBy.get(it.name) || [];
+      const st = progState(it.name), open = state.open.has(it.name);
+      const sub = open ? `<ul class="acts-list">${acts.map((a) => `<li class="opt"><label><input type="checkbox" data-cat="${esc(it.name)}" data-act="${esc(a.name)}" ${st === "all" || state.acts.has(a.name) ? "checked" : ""}><span>${esc(actLabel(a.name))}</span><span class="n">${a.count}</span></label></li>`).join("")}</ul>` : "";
+      return `<li class="opt prog" style="--c:${colorOf(it.name)}"><div class="line"><label><input type="checkbox" data-prog="${esc(it.name)}" ${st === "all" ? "checked" : ""} ${st === "some" ? "data-some" : ""}><span><span class="sw"></span>${esc(it.name)}</span><span class="n">${it.count}</span></label>`
+        + (acts.length > 1 ? `<button class="exp" data-exp="${esc(it.name)}" aria-expanded="${open}" aria-label="Show activities in ${esc(it.name)}">▶</button>` : "") + `</div>${sub}</li>`;
+    }).join("");
+    el.querySelectorAll("[data-some]").forEach((i) => (i.indeterminate = true));
+  }
+  function toggleProgram(cat, on) {
+    actsOf(cat).forEach((n) => state.acts.delete(n));
+    on ? state.cats.add(cat) : state.cats.delete(cat);
+  }
+  function toggleActivity(cat, name, on) {
+    const all = actsOf(cat);
+    if (state.cats.has(cat)) {
+      if (on) return;
+      state.cats.delete(cat);
+      all.forEach((n) => n !== name && state.acts.add(n));
+      return;
+    }
+    on ? state.acts.add(name) : state.acts.delete(name);
+    if (all.length > 1 && all.every((n) => state.acts.has(n))) toggleProgram(cat, true);
+  }
   function renderOpts(el, items, set, withColor) {
     el.innerHTML = items.map((it) => {
       const c = withColor ? colorOf(it.name) : "";
@@ -336,9 +378,9 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     }).join("");
   }
   function syncFilterChrome() {
-    const n = state.cats.size + state.centres.size + (state.q ? 1 : 0);
+    const n = state.cats.size + state.acts.size + state.centres.size + (state.q ? 1 : 0);
     $("#fcount").hidden = n === 0; $("#fcount").textContent = n;
-    $("#clearCats").hidden = state.cats.size === 0;
+    $("#clearCats").hidden = state.cats.size + state.acts.size === 0;
     $("#clearCentres").hidden = state.centres.size === 0;
   }
   function onToggle(set) {
@@ -348,9 +390,20 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
       persist(); syncFilterChrome(); load();
     };
   }
-  $("#cats").addEventListener("change", onToggle(state.cats));
+  $("#cats").addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.dataset.prog) toggleProgram(t.dataset.prog, t.checked);
+    else if (t.dataset.act) toggleActivity(t.dataset.cat, t.dataset.act, t.checked);
+    else return;
+    renderPrograms(); persist(); syncFilterChrome(); load();
+  });
+  $("#cats").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-exp]"); if (!b) return;
+    const c = b.dataset.exp; state.open.has(c) ? state.open.delete(c) : state.open.add(c);
+    renderPrograms();
+  });
   $("#centres").addEventListener("change", onToggle(state.centres));
-  $("#clearCats").onclick = () => { state.cats.clear(); renderOpts($("#cats"), catList, state.cats, true); persist(); syncFilterChrome(); load(); };
+  $("#clearCats").onclick = () => { state.cats.clear(); state.acts.clear(); renderPrograms(); persist(); syncFilterChrome(); load(); };
   $("#clearCentres").onclick = () => { state.centres.clear(); renderOpts($("#centres"), centreList, state.centres, false); persist(); syncFilterChrome(); load(); };
   let qTimer;
   $("#q").addEventListener("input", (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value.trim(); syncFilterChrome(); load(); }, 250); });
@@ -401,7 +454,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
   function emptyMsg() {
     const span = state.view === "day" ? "this day" : state.view === "week" ? "this week" : "the next two weeks";
-    const filtered = state.cats.size || state.centres.size || state.q;
+    const filtered = state.cats.size || state.acts.size || state.centres.size || state.q;
     return `<div class="state"><b>No sessions ${span}</b>${filtered ? "Nothing matches these filters. Try another date or clear a filter." : "Markham hasn't published anything for these dates yet."}</div>`;
   }
 
@@ -542,7 +595,8 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     const p = withToken(filterParams());
     const http = `${location.origin}/calendar.ics${p.toString() ? "?" + p : ""}`;
     const webcal = http.replace(/^https?:/, "webcal:");
-    const what = [state.cats.size ? [...state.cats].join(", ") : "all programs", state.centres.size ? [...state.centres].map(shortCentre).join(", ") : "all locations"].join(" at ");
+    const progs = [...state.cats, ...[...state.acts].map(actLabel)];
+    const what = [progs.length ? progs.join(", ") : "all programs", state.centres.size ? [...state.centres].map(shortCentre).join(", ") : "all locations"].join(" at ");
     const d = $("#subDlg");
     d.innerHTML = `<div class="dlg"><button class="x" aria-label="Close" value="close">×</button><h2>Subscribe to this calendar</h2>
       <p class="hint">Adds ${esc(what)}${state.q ? ` matching “${esc(state.q)}”` : ""} to your calendar app. It updates on its own as Markham changes the schedule.</p>
@@ -591,9 +645,12 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     syncFilterChrome();
     load();
     try {
-      const [cats, centres, status] = await Promise.all([api("/api/categories"), api("/api/centres"), api("/api/status")]);
+      const [cats, centres, acts, status] = await Promise.all([api("/api/categories"), api("/api/centres"), api("/api/activities"), api("/api/status")]);
       catList = cats; centreList = centres;
-      renderOpts($("#cats"), catList, state.cats, true);
+      actsBy = new Map();
+      acts.forEach((a) => (actsBy.get(a.category) || actsBy.set(a.category, []).get(a.category)).push(a));
+      catList.forEach((c) => { if (progState(c.name) === "some") state.open.add(c.name); });
+      renderPrograms();
       renderOpts($("#centres"), centreList, state.centres, false);
       const when = status.updated_at ? new Date(status.updated_at) : null;
       $("#meta").innerHTML = when

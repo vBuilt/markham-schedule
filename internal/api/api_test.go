@@ -18,6 +18,7 @@ type fakeStore struct {
 	sessions []schedule.Session
 	cats     []store.CategoryCount
 	centres  []store.CentreCount
+	acts     []store.ActivityCount
 	status   schedule.Status
 	err      error
 	got      schedule.Filter
@@ -29,6 +30,7 @@ func (f *fakeStore) Sessions(_ context.Context, fl schedule.Filter) ([]schedule.
 }
 func (f *fakeStore) Categories(context.Context) ([]store.CategoryCount, error) { return f.cats, f.err }
 func (f *fakeStore) Centres(context.Context) ([]store.CentreCount, error)      { return f.centres, f.err }
+func (f *fakeStore) Activities(context.Context) ([]store.ActivityCount, error) { return f.acts, f.err }
 func (f *fakeStore) LoadStatus(context.Context) (schedule.Status, error)       { return f.status, f.err }
 
 var toronto, _ = time.LoadLocation("America/Toronto")
@@ -233,5 +235,26 @@ func TestIndexPage(t *testing.T) {
 	}
 	if w := get(ht, "/?token=sekret"); w.Code != 200 {
 		t.Fatal(w.Code)
+	}
+}
+
+func TestActivityFilterAndList(t *testing.T) {
+	fs := &fakeStore{acts: []store.ActivityCount{{Category: "Swimming", Name: "Drop-In Lane Swim", Count: 3}}}
+	h := newH(fs, Options{})
+	if w := get(h, "/api/sessions?activity=Drop-In+Lane+Swim&activity=&category=Aquafit"); w.Code != 200 {
+		t.Fatal(w.Code)
+	}
+	if len(fs.got.Activities) != 1 || fs.got.Activities[0] != "Drop-In Lane Swim" || len(fs.got.Categories) != 1 {
+		t.Fatalf("filter %+v", fs.got)
+	}
+	if w := get(h, "/calendar.ics?activity=Drop-In+Lane+Swim"); w.Code != 200 || len(fs.got.Activities) != 1 {
+		t.Fatal("calendar should accept activity", w.Code)
+	}
+	w := get(h, "/api/activities")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `{"category":"Swimming","name":"Drop-In Lane Swim","count":3}`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if w := get(newH(&fakeStore{}, Options{}), "/api/activities"); strings.TrimSpace(w.Body.String()) != "[]" {
+		t.Fatal("empty list should be [], got", w.Body.String())
 	}
 }

@@ -288,3 +288,32 @@ func TestReopenPersists(t *testing.T) {
 		t.Fatal(ids(got))
 	}
 }
+
+func TestActivities(t *testing.T) {
+	s, _ := openT(t)
+	ctx := context.Background()
+	shared := sess("c", "Lane Swim", "Zed", "Swimming", d(2, 10))
+	s.ReplaceCategory(ctx, "Swimming", time.Time{}, []schedule.Session{
+		sess("a", "Lane Swim", "Zed", "Swimming", d(2, 9)),
+		sess("b", "Recreational Swim", "Zed", "Swimming", d(2, 10)),
+		shared,
+	})
+	s.ReplaceCategory(ctx, "Activities for Age 55+", time.Time{}, []schedule.Session{shared})
+	as, err := s.Activities(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []ActivityCount{
+		{Category: "Activities for Age 55+", Name: "Lane Swim", Count: 1},
+		{Category: "Swimming", Name: "Lane Swim", Count: 2},
+		{Category: "Swimming", Name: "Recreational Swim", Count: 1},
+	}
+	if len(as) != len(want) {
+		t.Fatalf("got %v", as)
+	}
+	for i := range want {
+		if as[i] != want[i] {
+			t.Fatalf("got %v, want %v", as, want)
+		}
+	}
+}

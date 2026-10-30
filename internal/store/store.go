@@ -38,6 +38,12 @@ type CategoryCount struct {
 	Count int    `json:"count"`
 }
 
+type ActivityCount struct {
+	Category string `json:"category"`
+	Name     string `json:"name"`
+	Count    int    `json:"count"`
+}
+
 type CentreCount struct {
 	Name    string           `json:"name"`
 	Address schedule.Address `json:"address"`
@@ -273,6 +279,33 @@ func (s *Store) Categories(ctx context.Context) ([]CategoryCount, error) {
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+// Activities lists the distinct session names within each category, sorted by
+// category then name. A session in two categories is counted in both.
+func (s *Store) Activities(ctx context.Context) ([]ActivityCount, error) {
+	all, err := s.Sessions(ctx, schedule.Filter{})
+	if err != nil {
+		return nil, err
+	}
+	type key struct{ cat, name string }
+	m := map[key]int{}
+	for _, ss := range all {
+		for _, c := range ss.Categories {
+			m[key{c, ss.Name}]++
+		}
+	}
+	out := make([]ActivityCount, 0, len(m))
+	for k, n := range m {
+		out = append(out, ActivityCount{Category: k.cat, Name: k.name, Count: n})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Category != out[j].Category {
+			return out[i].Category < out[j].Category
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out, nil
 }
 
 func (s *Store) Centres(ctx context.Context) ([]CentreCount, error) {

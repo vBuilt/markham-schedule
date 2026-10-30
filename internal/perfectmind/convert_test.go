@@ -154,3 +154,14 @@ func TestToSessionBadDate(t *testing.T) {
 		t.Error("expected error")
 	}
 }
+
+func TestToSessionNormalisesNameWhitespace(t *testing.T) {
+	r := RawClass{EventId: "e", EventName: " Drop-In  Recreational Skate ", OccurrenceDate: "20261101", FormattedStartTime: "08:05 PM", DurationInMinutes: 45}
+	s, err := ToSession(r, "Skating", "u", toronto(t), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Name != "Drop-In Recreational Skate" {
+		t.Fatalf("name %q", s.Name)
+	}
+}

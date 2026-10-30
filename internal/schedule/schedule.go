@@ -38,9 +38,13 @@ type Session struct {
 // all string matching is case-insensitive substring matching.
 type Filter struct {
 	Categories, Centres []string
-	Query               string    // substring of name or description
-	From, To            time.Time // zero = unbounded; session matches if Start >= From and Start < To
-	Limit               int       // 0 = no limit
+	// Activities are exact session names (case-insensitive). A session passes
+	// the program filter if it is in any of Categories OR is any of Activities,
+	// so a whole program and single activities from other programs combine.
+	Activities []string
+	Query      string    // substring of name or description
+	From, To   time.Time // zero = unbounded; session matches if Start >= From and Start < To
+	Limit      int       // 0 = no limit
 }
 
 func containsFold(s, sub string) bool {
@@ -48,13 +52,18 @@ func containsFold(s, sub string) bool {
 }
 
 func (f Filter) Matches(s Session) bool {
-	if len(f.Categories) > 0 {
+	if len(f.Categories) > 0 || len(f.Activities) > 0 {
 		ok := false
 		for _, want := range f.Categories {
 			for _, c := range s.Categories {
 				if containsFold(c, want) {
 					ok = true
 				}
+			}
+		}
+		for _, want := range f.Activities {
+			if strings.EqualFold(s.Name, want) {
+				ok = true
 			}
 		}
 		if !ok {

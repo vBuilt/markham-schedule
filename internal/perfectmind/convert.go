@@ -65,7 +65,7 @@ func ToSession(r RawClass, category, bookingURL string, loc *time.Location, scra
 	return schedule.Session{
 		ID:          SessionID(r),
 		Categories:  []string{category},
-		Name:        r.EventName,
+		Name:        strings.Join(strings.Fields(r.EventName), " "),
 		Description: strings.TrimSpace(strings.ReplaceAll(r.Details, "\r\n", "\n")),
 		Start:       start,
 		End:         end,

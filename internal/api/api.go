@@ -23,6 +23,7 @@ type Store interface {
 	Sessions(ctx context.Context, f schedule.Filter) ([]schedule.Session, error)
 	Categories(ctx context.Context) ([]store.CategoryCount, error)
 	Centres(ctx context.Context) ([]store.CentreCount, error)
+	Activities(ctx context.Context) ([]store.ActivityCount, error)
 	LoadStatus(ctx context.Context) (schedule.Status, error)
 }
 
@@ -67,6 +68,7 @@ func New(st Store, o Options) http.Handler {
 	mux.HandleFunc("GET /api/sessions", s.auth(s.sessions))
 	mux.HandleFunc("GET /api/categories", s.auth(s.categories))
 	mux.HandleFunc("GET /api/centres", s.auth(s.centres))
+	mux.HandleFunc("GET /api/activities", s.auth(s.activities))
 	mux.HandleFunc("GET /api/status", s.auth(s.status))
 	return mux
 }
@@ -121,6 +123,7 @@ func baseFilter(r *http.Request) schedule.Filter {
 	return schedule.Filter{
 		Categories: nonEmpty(q["category"]),
 		Centres:    nonEmpty(q["centre"]),
+		Activities: nonEmpty(q["activity"]),
 		Query:      q.Get("q"),
 	}
 }
@@ -183,6 +186,18 @@ func (s *server) categories(w http.ResponseWriter, r *http.Request) {
 	}
 	if v == nil {
 		v = []store.CategoryCount{}
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
+func (s *server) activities(w http.ResponseWriter, r *http.Request) {
+	v, err := s.st.Activities(r.Context())
+	if err != nil {
+		internalErr(w, r, err)
+		return
+	}
+	if v == nil {
+		v = []store.ActivityCount{}
 	}
 	writeJSON(w, http.StatusOK, v)
 }

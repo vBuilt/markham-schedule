@@ -26,7 +26,9 @@ Open `http://vnas:8095/` in any browser, on a laptop or a phone.
 
 - **Views:** Day, Week and List (the next two weeks). Use **Today** and **‹ ›** to move between dates.
   The keys `←` `→` `t` `d` `w` `l` do the same. Phones open in Day view.
-- **Filters:** tick programs and locations in the left panel (on a phone, tap **Filters**). Use the
+- **Filters:** tick programs and locations in the left panel (on a phone, tap **Filters**).
+  Click **▶** next to a program to pick individual activities in it, e.g. only Lane Swim under
+  Swimming, or only Pickleball under Sports & Activities. Use the
   search box for anything else, such as "pickleball" or "lane swim". Nothing ticked means everything.
   Your choices are remembered in that browser.
 - **Session details:** click a session for its time, facility, address (opens Google Maps), ages,
@@ -47,6 +49,9 @@ http://vnas:8095/calendar.ics?category=aquafit&category=swimming&centre=angus%20
 ```
 
 - `category` is a program and `centre` is a location. Both can be repeated.
+- `activity` is one exact activity name (as listed by `/api/activities`), e.g.
+  `activity=Drop-In%20Lane%20Swim`. Programs and activities combine: a session matches if it's in any
+  ticked program **or** is any ticked activity.
 - Matching ignores case and accepts part of a name, so `cornell` matches "Cornell Community Centre".
 - Several values of the same filter mean "any of these". Different filters must all match.
 - `q` is a free-text search.
@@ -71,11 +76,12 @@ Google also only refreshes subscriptions every several hours, up to a day.
 | `GET /api/sessions` | `{updated_at, count, sessions: [...]}`, sorted by start time |
 | `GET /api/categories` | Programs: `[{name, count}]` |
 | `GET /api/centres` | Locations: `[{name, address, count}]` |
+| `GET /api/activities` | Activities in each program: `[{category, name, count}]` |
 | `GET /api/status` | Last attempt and last success, per-program results, total, version |
 | `GET /calendar.ics` | The calendar feed described above |
 | `GET /healthz` | `ok` if the process is up |
 
-`/api/sessions` takes the same `category`, `centre` and `q` filters, plus:
+`/api/sessions` takes the same `category`, `activity`, `centre` and `q` filters, plus:
 - `from` and `to` as `YYYY-MM-DD` in Toronto time. `from` defaults to today and `to` is inclusive.
 - `limit`, which defaults to 500 and can go up to 5000.
 
