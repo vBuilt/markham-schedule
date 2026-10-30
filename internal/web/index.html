@@ -742,7 +742,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   $("#filtersBtn").onclick = () => document.body.classList.toggle("sheet");
   document.addEventListener("click", (e) => { if (document.body.classList.contains("sheet") && !e.target.closest("#rail,#filtersBtn")) document.body.classList.remove("sheet"); });
   document.addEventListener("keydown", (e) => {
-    if (e.target.matches("input") || document.querySelector("dialog[open]")) return;
+    if (e.target.matches("input") || e.target.closest("#acct") || document.querySelector("dialog[open]")) return;
     const map = { ArrowLeft: "#prevBtn", ArrowRight: "#nextBtn", t: "#todayBtn", d: "#dayBtn", w: "#weekBtn", l: "#listBtn" };
     if (map[e.key]) { e.preventDefault(); $(map[e.key]).click(); }
   });

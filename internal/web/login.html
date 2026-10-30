@@ -96,9 +96,15 @@ input { width: 100%; font: inherit; color: inherit; background: var(--surface); 
   }
   document.querySelectorAll('a[href^="/"]').forEach((a) => (a.href = tok(a.getAttribute("href"))));
 
-  // Only same-site paths are followed after signing in.
-  const nextRaw = qs.get("next") || "/";
-  const next = /^\/(?![/\\])/.test(nextRaw) ? nextRaw : "/";
+  // Only same-site paths are followed after signing in: resolve next the way
+  // the browser will and keep it only if it stays on this origin.
+  const sameSite = (raw) => {
+    try {
+      const u = new URL(raw, location.origin);
+      return u.origin === location.origin ? u.pathname + u.search + u.hash : "/";
+    } catch { return "/"; }
+  };
+  const next = sameSite(qs.get("next") || "/");
 
   // ---- Turnstile (only when the server has a site key) ----
   let tsKey = "", tsLoad = null, tsId = null;
