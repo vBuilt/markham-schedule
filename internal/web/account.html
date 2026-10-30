@@ -54,6 +54,16 @@ input { width: 100%; font: inherit; color: inherit; background: var(--surface); 
   <h1>Your account</h1>
 
   <div id="main" hidden>
+    <section class="card" aria-labelledby="nameH">
+      <h2 id="nameH">Name</h2>
+      <form id="nameForm" novalidate>
+        <label for="name">What should we call you? (optional)</label>
+        <input id="name" type="text" autocomplete="name" maxlength="60">
+        <p class="msg" id="nameMsg" aria-live="polite"></p>
+        <button class="btn" type="submit">Save name</button>
+      </form>
+    </section>
+
     <section class="card" aria-labelledby="emailH">
       <h2 id="emailH">Email</h2>
       <p id="email"></p>
@@ -138,12 +148,24 @@ input { width: 100%; font: inherit; color: inherit; background: var(--surface); 
 
   function show(user) {
     $("#email").textContent = user.email;
+    $("#name").value = user.name || "";
     document.querySelectorAll(".username").forEach((i) => (i.value = user.email)); // for password managers
     $("#state").textContent = user.confirmed ? "Confirmed" : "Not confirmed yet";
     $("#state").classList.toggle("no", !user.confirmed);
     $("#unconfirmed").hidden = user.confirmed;
     $("#main").hidden = false;
   }
+
+  $("#nameForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const b = e.target.querySelector("button");
+    b.disabled = true;
+    const r = await post("/api/auth/name", { name: $("#name").value });
+    b.disabled = false;
+    if (r.status === 401) return toLogin();
+    if (r.ok) $("#name").value = r.data.name;
+    say($("#nameMsg"), r.ok ? (r.data.name ? "Name saved." : "Name removed.") : r.error, r.ok);
+  };
 
   $("#resend").onclick = async (e) => {
     const b = e.currentTarget;

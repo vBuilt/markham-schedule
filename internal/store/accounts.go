@@ -19,14 +19,15 @@ type User struct {
 	PasswordHash string
 	Confirmed    bool
 	Created      time.Time
+	Name         string
 }
 
-const userCols = `id, email, password_hash, confirmed, created_unix`
+const userCols = `id, email, password_hash, confirmed, created_unix, name`
 
 func scanUser(row *sql.Row) (User, error) {
 	var u User
 	var created int64
-	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Confirmed, &created)
+	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Confirmed, &created, &u.Name)
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -63,6 +64,11 @@ func (s *Store) UserByID(ctx context.Context, id int64) (User, error) {
 
 func (s *Store) SetPassword(ctx context.Context, userID int64, hash string) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE users SET password_hash=? WHERE id=?`, hash, userID)
+	return err
+}
+
+func (s *Store) SetName(ctx context.Context, userID int64, name string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE users SET name=? WHERE id=?`, name, userID)
 	return err
 }
 

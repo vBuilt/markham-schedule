@@ -240,6 +240,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .acct-menu a:hover, .acct-menu button:hover { background: var(--grout-2); }
 .acct-menu .who { color: var(--ink-2); font-size: 13px; overflow-wrap: anywhere; }
 .acct-menu .who b { color: var(--ink); font-weight: 400; }
+.acct-menu .who b:not(:empty) + span { display: block; }
 .acct-menu .notice { color: #b7791f; font-weight: 700; }
 @media (prefers-color-scheme: dark) { .acct-menu .notice { color: #e3a948; } }
 .hint { color: var(--ink-2); font-size: 14px; margin: 0 0 4px; }
@@ -290,7 +291,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   <div class="acct" id="acct" hidden>
     <button class="btn icon" id="acctBtn" type="button" aria-expanded="false" aria-controls="acctMenu"><span id="acctInitial" aria-hidden="true"></span><span class="caret" aria-hidden="true">▾</span><span class="sr">Account menu</span></button>
     <div class="acct-menu" id="acctMenu" hidden>
-      <p class="who">Signed in as <b id="acctEmail"></b></p>
+      <p class="who">Signed in as <b id="acctName"></b><span id="acctEmail"></span></p>
       <a class="notice" id="acctConfirm" href="/account" hidden>Confirm your email</a>
       <a id="acctSettings" href="/account">Account settings</a>
       <button type="button" id="acctOut">Sign out</button>
@@ -761,8 +762,11 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     $("#signInBtn").hidden = !!user;
     $("#acct").hidden = !user;
     if (!user) { setMenu(false); return; }
-    $("#acctInitial").textContent = user.email.charAt(0).toUpperCase();
-    $("#acctEmail").textContent = user.email;
+    const name = (user.name || "").trim();
+    $("#acctInitial").textContent = (Array.from(name)[0] || user.email.charAt(0)).toUpperCase();
+    $("#acctName").textContent = name;
+    $("#acctEmail").textContent = name ? user.email : "";
+    if (!name) $("#acctName").textContent = user.email;
     $("#acctConfirm").hidden = user.confirmed;
   }
   acctBtn.onclick = () => {
