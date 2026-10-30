@@ -27,8 +27,11 @@ var ErrBusy = errors.New("refresh already running")
 
 type Config struct {
 	Horizon, Retention, Interval time.Duration
-	Loc                          *time.Location
-	Now                          func() time.Time
+	// RetryInterval is the delay before the next attempt after a failed
+	// refresh, capped at Interval. Zero means 15m.
+	RetryInterval time.Duration
+	Loc           *time.Location
+	Now           func() time.Time
 }
 
 type Scraper struct {
@@ -44,6 +47,9 @@ type Scraper struct {
 func New(src Source, st *store.Store, cfg Config, log *slog.Logger) *Scraper {
 	if cfg.Now == nil {
 		cfg.Now = time.Now
+	}
+	if cfg.RetryInterval <= 0 {
+		cfg.RetryInterval = 15 * time.Minute
 	}
 	if cfg.Loc == nil {
 		loc, err := time.LoadLocation("America/Toronto")
@@ -105,9 +111,24 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 	from := time.Date(ln.Year(), ln.Month(), ln.Day(), 0, 0, 0, 0, s.cfg.Loc)
 	to := now.Add(s.cfg.Horizon)
 
+	// Upcoming sessions already stored, i.e. the ones this run would replace.
+	before := -1
+	if upcoming, err := s.st.Sessions(ctx, schedule.Filter{From: from}); err != nil {
+		s.log.Warn("count stored sessions", "err", err)
+	} else {
+		before = len(upcoming)
+	}
+
+	// Fetch every category first; write only once the run as a whole looks sane.
+	type fetched struct {
+		idx      int // into results
+		sessions []schedule.Session
+		latest   time.Time
+	}
 	results := make([]schedule.CategoryResult, 0, len(cals))
 	names := make([]string, 0, len(cals))
-	okCount := 0
+	var toWrite []fetched
+	totalFetched := 0
 	for _, cal := range cals {
 		names = append(names, cal.Name)
 		res := schedule.CategoryResult{Name: cal.Name}
@@ -141,23 +162,48 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 			results = append(results, res)
 			continue
 		}
-		if err := s.st.ReplaceCategory(ctx, cal.Name, sessions); err != nil {
+		toWrite = append(toWrite, fetched{idx: len(results), sessions: sessions, latest: latest})
+		totalFetched += len(sessions)
+		results = append(results, res)
+	}
+
+	if len(toWrite) > 0 && totalFetched == 0 && before > 0 {
+		// Every category that answered came back empty while upcoming sessions
+		// are stored: far more likely a bad response than the whole city emptying.
+		status.Error = "all categories returned no sessions"
+		s.log.Error("all categories returned no sessions; keeping old data", "stored_upcoming", before)
+		if n, perr := s.st.Prune(ctx, now.Add(-s.cfg.Retention)); perr != nil {
+			s.log.Error("prune", "err", perr)
+		} else if n > 0 {
+			s.log.Info("pruned old sessions", "count", n)
+		}
+		if all, serr := s.st.Sessions(ctx, schedule.Filter{}); serr == nil {
+			status.Total = len(all)
+		}
+		if serr := s.st.SaveStatus(ctx, status); serr != nil {
+			s.log.Error("save status", "err", serr)
+		}
+		return status, errors.New(status.Error)
+	}
+
+	okCount := 0
+	for _, f := range toWrite {
+		res := &results[f.idx]
+		if err := s.st.ReplaceCategory(ctx, res.Name, from, f.sessions); err != nil {
 			if ctx.Err() != nil {
 				return status, ctx.Err()
 			}
 			res.Error = err.Error()
-			s.log.Error("store category", "category", cal.Name, "err", err)
-			results = append(results, res)
+			s.log.Error("store category", "category", res.Name, "err", err)
 			continue
 		}
-		res.OK, res.Count = true, len(sessions)
+		res.OK, res.Count = true, len(f.sessions)
 		okCount++
 		latestStr := ""
-		if !latest.IsZero() {
-			latestStr = latest.In(s.cfg.Loc).Format("2006-01-02")
+		if !f.latest.IsZero() {
+			latestStr = f.latest.In(s.cfg.Loc).Format("2006-01-02")
 		}
-		s.log.Info("category refreshed", "category", cal.Name, "count", len(sessions), "latest_start", latestStr)
-		results = append(results, res)
+		s.log.Info("category refreshed", "category", res.Name, "count", len(f.sessions), "latest_start", latestStr)
 	}
 
 	if err := s.st.RemoveCategoriesExcept(ctx, names); err != nil {
@@ -192,7 +238,16 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 	return status, retErr
 }
 
-// Run refreshes immediately when data is missing or stale, then every Interval until ctx is done.
+// retryDelay is the wait after a failed refresh: min(RetryInterval, Interval).
+func (s *Scraper) retryDelay() time.Duration {
+	if s.cfg.Interval > 0 && s.cfg.Interval < s.cfg.RetryInterval {
+		return s.cfg.Interval
+	}
+	return s.cfg.RetryInterval
+}
+
+// Run refreshes immediately when data is missing or stale, then every Interval
+// (or after retryDelay following a failed refresh) until ctx is done.
 func (s *Scraper) Run(ctx context.Context) {
 	wait := time.Duration(0)
 	if st, err := s.st.LoadStatus(ctx); err == nil && st.LastSuccess != nil {
@@ -208,12 +263,17 @@ func (s *Scraper) Run(ctx context.Context) {
 			return
 		case <-timer.C:
 		}
-		if _, err := s.Refresh(ctx); err != nil && ctx.Err() == nil {
-			s.log.Error("refresh failed", "err", err)
+		_, err := s.Refresh(ctx)
+		if err != nil && ctx.Err() == nil {
+			s.log.Error("refresh failed", "err", err, "retry_in", s.retryDelay())
 		}
 		if s.onRefresh != nil {
 			s.onRefresh()
 		}
-		timer.Reset(s.cfg.Interval)
+		if err != nil {
+			timer.Reset(s.retryDelay())
+		} else {
+			timer.Reset(s.cfg.Interval)
+		}
 	}
 }

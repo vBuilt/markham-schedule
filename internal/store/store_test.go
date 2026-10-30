@@ -54,7 +54,7 @@ func TestReplaceCategoryRoundTrip(t *testing.T) {
 	a.Price, a.Spots, a.CourseID, a.BookingURL = "$5", "5 left", "c1", "http://x"
 	a.ScrapedAt = d(1, 1)
 	b := sess("b", "Swim", "Angus Glen", "Aquafit", d(3, 9))
-	if err := s.ReplaceCategory(ctx, "Aquafit", []schedule.Session{a, b, a}); err != nil {
+	if err := s.ReplaceCategory(ctx, "Aquafit", time.Time{}, []schedule.Session{a, b, a}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.Sessions(ctx, schedule.Filter{})
@@ -82,11 +82,34 @@ func TestReplaceCategoryRemovesMissing(t *testing.T) {
 	ctx := context.Background()
 	a := sess("a", "A", "C", "X", d(2, 9))
 	b := sess("b", "B", "C", "X", d(2, 10))
-	s.ReplaceCategory(ctx, "X", []schedule.Session{a, b})
-	s.ReplaceCategory(ctx, "X", []schedule.Session{a})
+	s.ReplaceCategory(ctx, "X", time.Time{}, []schedule.Session{a, b})
+	s.ReplaceCategory(ctx, "X", time.Time{}, []schedule.Session{a})
 	got, _ := s.Sessions(ctx, schedule.Filter{})
 	if !reflect.DeepEqual(ids(got), []string{"a"}) {
 		t.Fatalf("%v", ids(got))
+	}
+}
+
+func TestReplaceCategoryKeepsLinksBeforeSince(t *testing.T) {
+	s, _ := openT(t)
+	ctx := context.Background()
+	past := sess("past", "P", "C", "X", d(1, 9))
+	edge := sess("edge", "E", "C", "X", d(2, 0))
+	future := sess("future", "F", "C", "X", d(3, 9))
+	other := sess("other", "O", "C", "Y", d(1, 9))
+	s.ReplaceCategory(ctx, "X", time.Time{}, []schedule.Session{past, edge, future})
+	s.ReplaceCategory(ctx, "Y", time.Time{}, []schedule.Session{other})
+	// Refresh X from day 2 00:00 with nothing: only links at/after since go.
+	if err := s.ReplaceCategory(ctx, "X", d(2, 0), nil); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.Sessions(ctx, schedule.Filter{})
+	if !reflect.DeepEqual(ids(got), []string{"other", "past"}) {
+		t.Fatalf("%v", ids(got))
+	}
+	cc, _ := s.Categories(ctx)
+	if want := []CategoryCount{{"X", 1}, {"Y", 1}}; !reflect.DeepEqual(cc, want) {
+		t.Fatalf("%v", cc)
 	}
 }
 
@@ -94,8 +117,8 @@ func TestSessionInTwoCategories(t *testing.T) {
 	s, _ := openT(t)
 	ctx := context.Background()
 	a := sess("a", "A", "C", "Aquafit", d(2, 9))
-	s.ReplaceCategory(ctx, "Aquafit", []schedule.Session{a})
-	s.ReplaceCategory(ctx, "Swimming", []schedule.Session{a})
+	s.ReplaceCategory(ctx, "Aquafit", time.Time{}, []schedule.Session{a})
+	s.ReplaceCategory(ctx, "Swimming", time.Time{}, []schedule.Session{a})
 	got, _ := s.Sessions(ctx, schedule.Filter{})
 	if len(got) != 1 || !reflect.DeepEqual(got[0].Categories, []string{"Aquafit", "Swimming"}) {
 		t.Fatalf("%+v", got)
@@ -111,9 +134,9 @@ func TestReplaceCategoryKeepsSharedSession(t *testing.T) {
 	s, _ := openT(t)
 	ctx := context.Background()
 	a := sess("a", "A", "C", "Aquafit", d(2, 9))
-	s.ReplaceCategory(ctx, "Aquafit", []schedule.Session{a})
-	s.ReplaceCategory(ctx, "Swimming", []schedule.Session{a})
-	if err := s.ReplaceCategory(ctx, "Swimming", nil); err != nil {
+	s.ReplaceCategory(ctx, "Aquafit", time.Time{}, []schedule.Session{a})
+	s.ReplaceCategory(ctx, "Swimming", time.Time{}, []schedule.Session{a})
+	if err := s.ReplaceCategory(ctx, "Swimming", time.Time{}, nil); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := s.Sessions(ctx, schedule.Filter{})
@@ -125,8 +148,8 @@ func TestReplaceCategoryKeepsSharedSession(t *testing.T) {
 func TestRemoveCategoriesExcept(t *testing.T) {
 	s, _ := openT(t)
 	ctx := context.Background()
-	s.ReplaceCategory(ctx, "X", []schedule.Session{sess("a", "A", "C", "X", d(2, 9))})
-	s.ReplaceCategory(ctx, "Y", []schedule.Session{sess("b", "B", "C", "Y", d(2, 9))})
+	s.ReplaceCategory(ctx, "X", time.Time{}, []schedule.Session{sess("a", "A", "C", "X", d(2, 9))})
+	s.ReplaceCategory(ctx, "Y", time.Time{}, []schedule.Session{sess("b", "B", "C", "Y", d(2, 9))})
 	if err := s.RemoveCategoriesExcept(ctx, []string{"X"}); err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +167,7 @@ func TestRemoveCategoriesExcept(t *testing.T) {
 func TestPrune(t *testing.T) {
 	s, _ := openT(t)
 	ctx := context.Background()
-	s.ReplaceCategory(ctx, "X", []schedule.Session{
+	s.ReplaceCategory(ctx, "X", time.Time{}, []schedule.Session{
 		sess("old", "O", "C", "X", d(1, 9)),
 		sess("new", "N", "C", "X", d(5, 9)),
 	})
@@ -165,11 +188,11 @@ func TestPrune(t *testing.T) {
 func TestFilterMatching(t *testing.T) {
 	s, _ := openT(t)
 	ctx := context.Background()
-	s.ReplaceCategory(ctx, "Aquafit", []schedule.Session{
+	s.ReplaceCategory(ctx, "Aquafit", time.Time{}, []schedule.Session{
 		sess("a", "A", "Cornell Community Centre", "Aquafit", d(2, 9)),
 		sess("b", "B", "Angus Glen Community Centre", "Aquafit", d(2, 10)),
 	})
-	s.ReplaceCategory(ctx, "Skating", []schedule.Session{
+	s.ReplaceCategory(ctx, "Skating", time.Time{}, []schedule.Session{
 		sess("c", "C", "Cornell Community Centre", "Skating", d(2, 11)),
 		sess("d", "D", "Thornhill", "Skating", d(2, 12)),
 	})
@@ -197,7 +220,7 @@ func TestFilterMatching(t *testing.T) {
 func TestFilterTimeRangeAndLimit(t *testing.T) {
 	s, _ := openT(t)
 	ctx := context.Background()
-	s.ReplaceCategory(ctx, "X", []schedule.Session{
+	s.ReplaceCategory(ctx, "X", time.Time{}, []schedule.Session{
 		sess("a", "A", "C", "X", d(2, 9)),
 		sess("b", "B", "C", "X", d(3, 9)),
 		sess("c", "C", "C", "X", d(4, 9)),
@@ -215,7 +238,7 @@ func TestFilterTimeRangeAndLimit(t *testing.T) {
 func TestCentres(t *testing.T) {
 	s, _ := openT(t)
 	ctx := context.Background()
-	s.ReplaceCategory(ctx, "X", []schedule.Session{
+	s.ReplaceCategory(ctx, "X", time.Time{}, []schedule.Session{
 		sess("a", "A", "Zed", "X", d(2, 9)),
 		sess("b", "B", "Zed", "X", d(2, 10)),
 		sess("c", "C", "Alpha", "X", d(2, 10)),
@@ -253,7 +276,7 @@ func TestStatusRoundTrip(t *testing.T) {
 func TestReopenPersists(t *testing.T) {
 	s, p := openT(t)
 	ctx := context.Background()
-	s.ReplaceCategory(ctx, "X", []schedule.Session{sess("a", "A", "C", "X", d(2, 9))})
+	s.ReplaceCategory(ctx, "X", time.Time{}, []schedule.Session{sess("a", "A", "C", "X", d(2, 9))})
 	s.Close()
 	s2, err := Open(p)
 	if err != nil {

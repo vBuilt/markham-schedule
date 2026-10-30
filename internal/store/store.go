@@ -79,9 +79,15 @@ func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error) error {
 
 const deleteOrphans = `DELETE FROM sessions WHERE id NOT IN (SELECT session_id FROM session_categories)`
 
-func (s *Store) ReplaceCategory(ctx context.Context, category string, sessions []schedule.Session) error {
+// ReplaceCategory makes sessions the category's set of sessions starting at or
+// after since. Links to sessions starting before since are left alone (Prune
+// removes them once they age past retention), so fetching from today never
+// deletes earlier sessions.
+func (s *Store) ReplaceCategory(ctx context.Context, category string, since time.Time, sessions []schedule.Session) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM session_categories WHERE category=?`, category); err != nil {
+		if _, err := tx.ExecContext(ctx,
+			`DELETE FROM session_categories WHERE category=? AND session_id IN (SELECT id FROM sessions WHERE start_unix >= ?)`,
+			category, since.Unix()); err != nil {
 			return err
 		}
 		seen := map[string]bool{}

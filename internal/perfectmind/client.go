@@ -114,7 +114,7 @@ func (c *Client) Calendars(ctx context.Context) ([]Calendar, error) {
 		addFilters(v, today, today.AddDate(1, 0, 0))
 		return v
 	}
-	if err := c.postJSON(ctx, page, post, &tok, form, &groups); err != nil {
+	if err := c.postJSON(ctx, page, post, &tok, form, &groups, nil); err != nil {
 		return nil, fmt.Errorf("perfectmind: categories: %w", err)
 	}
 	var out []Calendar
@@ -156,7 +156,15 @@ func (c *Client) Classes(ctx context.Context, cal Calendar, from, to time.Time) 
 			return v
 		}
 		var resp ClassesResponse
-		if err := c.postJSON(ctx, page, post, &tok, form, &resp); err != nil {
+		// The real end-of-data page is {"classes":[],"nextKey":"0001-01-01"}; no
+		// classes and no nextKey means a body we do not understand, not "empty".
+		check := func() error {
+			if len(resp.Classes) == 0 && resp.NextKey == "" {
+				return fmt.Errorf("POST %s: unexpected response shape (no classes and no nextKey)", post)
+			}
+			return nil
+		}
+		if err := c.postJSON(ctx, page, post, &tok, form, &resp, check); err != nil {
 			return nil, fmt.Errorf("perfectmind: calendar %q: %w", cal.Name, err)
 		}
 		if len(resp.Classes) == 0 {
@@ -248,9 +256,10 @@ func (c *Client) token(ctx context.Context, pageURL string) (string, error) {
 }
 
 // postJSON posts the form and decodes a JSON response into out, retrying
-// non-JSON, 5xx and network failures. Before retrying after a non-JSON/5xx
-// response it re-GETs the page to refresh token and cookies.
-func (c *Client) postJSON(ctx context.Context, pageURL, postURL string, tok *string, form func(string) url.Values, out any) error {
+// non-JSON, 5xx, network failures and (when check is non-nil) decoded bodies
+// that check rejects. Before retrying after a non-network failure it re-GETs
+// the page to refresh token and cookies.
+func (c *Client) postJSON(ctx context.Context, pageURL, postURL string, tok *string, form func(string) url.Values, out any, check func() error) error {
 	var lastErr error
 	for attempt := 0; attempt <= c.o.Retries; attempt++ {
 		if attempt > 0 {
@@ -271,6 +280,9 @@ func (c *Client) postJSON(ctx context.Context, pageURL, postURL string, tok *str
 			}
 		}
 		err := c.postOnce(ctx, pageURL, postURL, form(*tok), out)
+		if err == nil && check != nil {
+			err = check()
+		}
 		if err == nil {
 			return nil
 		}

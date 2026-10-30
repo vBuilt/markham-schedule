@@ -5,7 +5,8 @@ A small Go service that scrapes the City of Markham's PerfectMind drop-in schedu
 `.ics` calendar feed plus a JSON API. It runs as a single Docker container.
 
 The scraper is the only thing that talks to PerfectMind: it runs on startup and then every
-`REFRESH_INTERVAL`, sequentially with a delay between requests. API requests never trigger a scrape.
+`REFRESH_INTERVAL` (retrying after 15 minutes when a refresh fails), sequentially with a delay
+between requests. API requests never trigger a scrape.
 
 ## Endpoints
 
@@ -40,7 +41,7 @@ If `API_TOKEN` is set, send it as `Authorization: Bearer <token>` or `?token=<to
 | `REFRESH_INTERVAL` | `3h` | Time between scrapes (must be > 0) |
 | `REQUEST_DELAY` | `1s` | Pause between PerfectMind requests |
 | `HORIZON` | `2160h` | How far ahead to scrape (90 days; must be > 0) |
-| `RETENTION` | `336h` | How long past sessions are kept |
+| `RETENTION` | `336h` | How long past sessions are kept after they end (they stay in the feed until pruned) |
 | `API_TOKEN` | empty | Optional shared token; empty disables auth |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 

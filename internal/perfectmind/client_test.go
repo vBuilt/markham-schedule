@@ -252,6 +252,30 @@ func TestClassesRetriesOnHTML(t *testing.T) {
 	}
 }
 
+// F2: a 200 JSON body of the wrong shape (no classes, no nextKey) is an error,
+// retried like non-JSON, never "genuinely empty".
+func TestClassesUnexpectedShapeIsError(t *testing.T) {
+	f := newFake(t)
+	f.pages["2026-11-01"] = ClassesResponse{} // encodes as {"classes":null,"nextKey":""...}
+	_, err := f.client(nil).Classes(context.Background(), testCal, day("2026-11-01"), day("2026-12-31"))
+	if err == nil || !strings.Contains(err.Error(), "Aquafit") || !strings.Contains(err.Error(), "unexpected response shape") {
+		t.Fatalf("want unexpected-shape error naming the calendar, got %v", err)
+	}
+	if len(f.starts) != 3 { // 1 try + 2 retries
+		t.Errorf("POST attempts = %d, want 3", len(f.starts))
+	}
+	if f.gets != 3 {
+		t.Errorf("token page should be re-fetched before each retry; GETs = %d", f.gets)
+	}
+
+	// The real end-of-data page (nextKey 0001-01-01) is still a clean empty result.
+	f2 := newFake(t)
+	got, err := f2.client(nil).Classes(context.Background(), testCal, day("2026-11-01"), day("2026-12-31"))
+	if err != nil || len(got) != 0 || len(f2.starts) != 1 {
+		t.Fatalf("got %d classes, err %v, %d posts", len(got), err, len(f2.starts))
+	}
+}
+
 func TestClassesSendsTokenAndCookie(t *testing.T) {
 	f := newFake(t)
 	f.pages["2026-11-01"] = ClassesResponse{Classes: fixtureClasses(t, 2), NextKey: "2026-12-30"}
