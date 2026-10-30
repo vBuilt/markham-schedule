@@ -359,3 +359,11 @@ func TestRegistrationFetchesClassPage(t *testing.T) {
 		t.Fatal("expected error on 500")
 	}
 }
+
+func TestClassURL(t *testing.T) {
+	c := New(Options{BaseURL: "https://x.example", WidgetID: "w1"})
+	want := "https://x.example/Clients/BookMe4LandingPages/Class?classId=ev-1&occurrenceDate=20261101&redirectedFromEmbededMode=False&widgetId=w1"
+	if got := c.ClassURL("ev-1", "20261101"); got != want {
+		t.Fatalf("got %s", got)
+	}
+}

@@ -326,6 +326,18 @@ func (c *Client) postOnce(ctx context.Context, pageURL, postURL string, form url
 	return nil
 }
 
+// ClassURL is one occurrence's own class page, where it's booked. occurrenceDate
+// is YYYYMMDD.
+func (c *Client) ClassURL(eventID, occurrenceDate string) string {
+	q := url.Values{
+		"widgetId":                  {c.o.WidgetID},
+		"redirectedFromEmbededMode": {"False"},
+		"classId":                   {eventID},
+		"occurrenceDate":            {occurrenceDate},
+	}
+	return c.AbsURL("/Clients/BookMe4LandingPages/Class?" + q.Encode())
+}
+
 // Registration fetches one occurrence's class landing page and returns when
 // online registration opens for residents, members and the public. occurrenceDate
 // is YYYYMMDD. It is a plain GET (no token) and honours Delay like every request.
@@ -333,13 +345,7 @@ func (c *Client) Registration(ctx context.Context, eventID, occurrenceDate strin
 	if err := c.wait(ctx); err != nil {
 		return nil, nil, nil, err
 	}
-	q := url.Values{
-		"widgetId":                  {c.o.WidgetID},
-		"redirectedFromEmbededMode": {"False"},
-		"classId":                   {eventID},
-		"occurrenceDate":            {occurrenceDate},
-	}
-	pageURL := c.AbsURL("/Clients/BookMe4LandingPages/Class?" + q.Encode())
+	pageURL := c.ClassURL(eventID, occurrenceDate)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
 	if err != nil {
 		return nil, nil, nil, err

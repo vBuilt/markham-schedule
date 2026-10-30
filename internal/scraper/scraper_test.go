@@ -65,6 +65,9 @@ func (f *fakeSource) Classes(ctx context.Context, cal perfectmind.Calendar, from
 }
 
 func (f *fakeSource) AbsURL(p string) string { return "https://x" + p }
+func (f *fakeSource) ClassURL(eventID, occurrenceDate string) string {
+	return "https://x/class?" + eventID
+}
 
 // Registration mimics a drop-in course: residents open 21 clock hours before
 // an 8:00 AM start (11:00 AM the day before), members and public 3 hours before.
@@ -689,5 +692,27 @@ func TestRequestRefreshNoHistory(t *testing.T) {
 	}
 	if err := s.RequestRefresh(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestBookingURLIsTheSessionsClassPage(t *testing.T) {
+	src := twoCats()
+	src.classes["A"] = append(src.classes["A"], perfectmind.RawClass{OccurrenceDate: "20261101", FormattedStartTime: "09:00 AM", DurationInMinutes: 60, EventName: "NoID"})
+	s, st, _ := setup(t, src)
+	if _, err := s.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	all, err := st.Sessions(context.Background(), schedule.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range all {
+		want := "https://x/class?" + x.Name[1:]
+		if x.Name == "NoID" {
+			want = "https://x/a" // no event id: fall back to the program's page
+		}
+		if x.BookingURL != want {
+			t.Errorf("%s: booking url %q, want %q", x.Name, x.BookingURL, want)
+		}
 	}
 }

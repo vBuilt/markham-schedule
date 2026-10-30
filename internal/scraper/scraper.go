@@ -20,6 +20,7 @@ type Source interface {
 	Calendars(ctx context.Context) ([]perfectmind.Calendar, error)
 	Classes(ctx context.Context, cal perfectmind.Calendar, from, to time.Time) ([]perfectmind.RawClass, error)
 	AbsURL(path string) string
+	ClassURL(eventID, occurrenceDate string) string
 	Registration(ctx context.Context, eventID, occurrenceDate string, loc *time.Location) (residents, members, public *time.Time, err error)
 }
 
@@ -201,7 +202,11 @@ func (s *Scraper) refresh(ctx context.Context, run *schedule.Run) (schedule.Stat
 		eventIDs := make([]string, 0, len(raws))
 		var latest time.Time
 		for _, r := range raws {
-			sess, err := perfectmind.ToSession(r, cal.Name, bookingURL, s.cfg.Loc, now)
+			link := bookingURL
+			if r.EventId != "" {
+				link = s.src.ClassURL(r.EventId, r.OccurrenceDate)
+			}
+			sess, err := perfectmind.ToSession(r, cal.Name, link, s.cfg.Loc, now)
 			if err != nil {
 				s.log.Warn("skipping unconvertible row", "category", cal.Name, "event", r.EventId, "err", err)
 				continue

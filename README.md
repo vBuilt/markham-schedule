@@ -43,7 +43,8 @@ Open `https://markham.vincentlfilms.com/` in any browser, on a laptop or a phone
   Your choices are remembered in that browser. A browser's first visit starts with only
   **Badminton: Adult and Child** selected.
 - **Session details:** click a session for its time, facility, address (opens Google Maps), ages,
-  price, spots left, **registration dates**, and a button to its booking page. Spots left are as of
+  price, spots left, **registration dates**, and a button that opens that session's own page on
+  Markham's site, where you book it. Spots left are as of
   the last refresh, not live.
 - **Full sessions** are hatched, struck through and tagged **Full**. Sessions with 1–3 spots left
   say "Only N left".
@@ -127,7 +128,7 @@ Each session looks like this:
   "address": { "street": "3201 Bur Oak Drive", "city": "Markham", "postal_code": "L6B 0T2" },
   "age": "16+", "price": "No fee", "spots": "60 spots left", "spots_left": 60,
   "course_id": "359564",
-  "booking_url": "https://cityofmarkham.perfectmind.com/Clients/BookMe4BookingPages/Classes?…",
+  "booking_url": "https://cityofmarkham.perfectmind.com/Clients/BookMe4LandingPages/Class?classId=…&occurrenceDate=20261030&…",
   "registration": {
     "residents": "2026-10-29T12:10:00-04:00",
     "members": "2026-10-30T06:10:00-04:00",
