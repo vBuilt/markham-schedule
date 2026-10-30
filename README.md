@@ -16,7 +16,8 @@ anywhere on Tailscale.
 | Calendar web page | [`http://vnas:8095/`](http://vnas:8095/) |
 | Calendar feed for your calendar app | `http://vnas:8095/calendar.ics?category=…&centre=…` |
 | JSON API for apps | `http://vnas:8095/api/sessions?category=…&centre=…` |
-| Is it working? When did it last update? | [`http://vnas:8095/api/status`](http://vnas:8095/api/status) |
+| Scrape status page: is it working, how each refresh went | [`http://vnas:8095/status`](http://vnas:8095/status) |
+| Status as JSON | [`http://vnas:8095/api/status`](http://vnas:8095/api/status) |
 | Source code | <https://github.com/vBuilt/markham-schedule> |
 | Docker image | `ghcr.io/vbuilt/markham-schedule:latest` |
 
@@ -30,10 +31,17 @@ Open `http://vnas:8095/` in any browser, on a laptop or a phone.
   Click **▶** next to a program to pick individual activities in it, e.g. only Lane Swim under
   Swimming, or only Pickleball under Sports & Activities. Use the
   search box for anything else, such as "pickleball" or "lane swim". Nothing ticked means everything.
-  Your choices are remembered in that browser.
+  Your choices are remembered in that browser. A browser's first visit starts with only
+  **Badminton: Adult and Child** selected.
 - **Session details:** click a session for its time, facility, address (opens Google Maps), ages,
-  price, spots left, and a button to its booking page. Spots left are as of the last refresh,
-  not live.
+  price, spots left, **registration dates**, and a button to its booking page. Spots left are as of
+  the last refresh, not live.
+- **Full sessions** are hatched, struck through and tagged **Full**. Sessions with 1–3 spots left
+  say "Only N left".
+- **Registration dates:** when online registration opens for residents, members and the public,
+  plus how long until then (or "open now"). The list view also shows when residents can
+  register. Drop-ins usually open to residents 21 hours before the start and to members and the
+  public 3 hours before. "In person only" means the session can't be booked online, e.g. Aquafit.
 - **Busy days:** when too many sessions overlap, the week view folds them into a **+N more** button.
   Filtering to a few programs and locations makes the week easy to read.
 - **Subscribe:** gives you a calendar-feed link for exactly what you're filtering, ready to paste
@@ -77,7 +85,9 @@ Google also only refreshes subscriptions every several hours, up to a day.
 | `GET /api/categories` | Programs: `[{name, count}]` |
 | `GET /api/centres` | Locations: `[{name, address, count}]` |
 | `GET /api/activities` | Activities in each program: `[{category, name, count}]` |
-| `GET /api/status` | Last attempt and last success, per-program results, total, version |
+| `GET /api/status` | Last attempt and last success, per-program results, total, version, refresh interval, registration-date coverage |
+| `GET /api/runs` | History of recent refreshes, newest first (`limit`, default 50, max 300) |
+| `GET /status` | The scrape status page |
 | `GET /calendar.ics` | The calendar feed described above |
 | `GET /healthz` | `ok` if the process is up |
 
@@ -105,16 +115,33 @@ Each session looks like this:
   "address": { "street": "3201 Bur Oak Drive", "city": "Markham", "postal_code": "L6B 0T2" },
   "age": "16+", "price": "No fee", "spots": "60 spots left", "spots_left": 60,
   "course_id": "359564",
-  "booking_url": "https://cityofmarkham.perfectmind.com/Clients/BookMe4BookingPages/Classes?…"
+  "booking_url": "https://cityofmarkham.perfectmind.com/Clients/BookMe4BookingPages/Classes?…",
+  "registration": {
+    "residents": "2026-10-29T12:10:00-04:00",
+    "members": "2026-10-30T06:10:00-04:00",
+    "public": "2026-10-30T06:10:00-04:00"
+  }
 }
 ```
+
+`spots_left` is `0` for full sessions. `registration` is `null` until that course's registration
+page has been looked up. All three values `null` means in person only.
 
 Session `id`s stay the same across refreshes, so apps and calendars don't get duplicates. Errors
 come back as `{"error": "…"}`.
 
 ## Checking that it's healthy
 
-Open `http://vnas:8095/api/status`:
+Open **`http://vnas:8095/status`** (also linked at the bottom of the calendar's filter panel). It shows:
+- an overall verdict: Healthy, Partly working, Behind, Failing or Starting up
+- when the last good refresh was and when the next is due
+- how many sessions have registration dates so far
+- the latest refresh broken down by program: OK or failed, session count, change since the
+  previous refresh, fetch time and any error
+- a chart and table of the last 100 refreshes: time taken, programs OK, sessions, registration
+  lookups and errors
+
+The same information as JSON is at `http://vnas:8095/api/status` and `/api/runs`. In `/api/status`:
 - `last_success` is the last good refresh. It should be under 3 hours old.
 - `categories` lists each program, with `ok` and how many sessions it has.
 - `error` is only present when the last attempt had a problem.
@@ -167,6 +194,7 @@ Add them to the `docker run` command with `-e NAME=value`.
 | `API_TOKEN` | empty | If set, every request except `/healthz` needs `?token=…` or `Authorization: Bearer …`. Open the web page as `http://vnas:8095/?token=…` |
 | `LISTEN_ADDR` | `:8080` | Listen address inside the container |
 | `DATA_DIR` | `/data` | Where `schedule.db` lives |
+| `REG_LOOKUPS` | `600` | Maximum registration pages fetched per refresh, at `REQUEST_DELAY` spacing. `0` turns registration lookups off |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
 
 Durations use Go syntax (`30m`, `3h`). The timezone is always America/Toronto.
@@ -187,6 +215,20 @@ changes format, re-capture them with `bash scripts/capture-fixtures.sh`.
 
 GitHub Actions runs the tests, then builds and pushes `linux/amd64` and `linux/arm64` images to
 GHCR on every push to `main` (tag `latest` plus `sha-…`). A `v1.2.3` git tag also publishes `1.2.3` and `1.2`.
+
+## How registration dates are collected
+
+Registration dates aren't in the schedule listing. They're only on each session's own page, and
+there are about 5,000 sessions. So the service fetches **one page per course** (about 630 courses)
+and learns its rule: "opens N hours before the start" for each audience, or a fixed season-wide
+date. Every session of that course gets its dates calculated from the rule. The hours follow the
+local clock across daylight-saving changes, the same way Markham's site does.
+
+- New courses are looked up first, soonest session first, up to `REG_LOOKUPS` per refresh.
+  A fresh install needs about two refreshes to cover everything.
+- Each rule is re-checked after 14 days.
+- After 5 lookup failures in a row it stops for that refresh. Sessions whose course hasn't been
+  looked up show "Not looked up yet".
 
 ## Caveats
 

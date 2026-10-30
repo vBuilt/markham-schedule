@@ -153,6 +153,19 @@ button { cursor: pointer; }
 .ev .t { color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .ev .w { color: var(--ink-2); }
 .ev.past { opacity: .55; }
+.ev.full {
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 10%, var(--surface)) 0 6px, var(--surface) 6px 12px);
+  border-left-style: dashed; color: var(--ink-2);
+}
+.ev.full b { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ink) 45%, transparent); }
+.fulltag, .fullpill {
+  display: inline-block; background: var(--rope); color: #fff; font-weight: 700; font-size: 10px;
+  line-height: 1; padding: 2px 4px; border-radius: 3px; letter-spacing: .02em;
+}
+.fulltag { float: right; margin: 0 0 2px 3px; }
+.fullpill { font-size: 12px; padding: 2px 6px; }
+.low { color: #b7791f; font-weight: 700; }
+.row.full b { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ink) 45%, transparent); }
 .more {
   position: absolute; border: 1px dashed var(--ink-2); border-radius: 4px; background: var(--surface);
   font-size: 12px; font-weight: 700; padding: 0 4px; color: var(--ink);
@@ -193,6 +206,15 @@ dialog::backdrop { background: rgba(10, 25, 31, .45); }
 .dlg dt { color: var(--ink-2); }
 .dlg dd { margin: 0; }
 .dlg dd a { color: var(--focus); }
+.regline { font-variant-numeric: tabular-nums; }
+.regline > span:first-child { display: inline-block; min-width: 78px; color: var(--ink-2); }
+.regline.res { font-weight: 700; }
+.regline.res > span:first-child { color: var(--ink); }
+.rel { font-weight: 400; font-size: 13px; color: var(--ink-2); margin-left: 4px; }
+.rel.open { color: #2f8f4e; }
+.muted { color: var(--ink-2); }
+.row .reg { display: block; font-size: 12px; }
+.row .reg.open { color: #2f8f4e; }
 .dlg .desc { white-space: pre-wrap; color: var(--ink-2); font-size: 14px; max-height: 9em; overflow-y: auto; margin: 0 0 14px; }
 .dlg .acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .dlg .x { position: absolute; top: 14px; right: 12px; border: 0; background: none; font-size: 22px; width: 34px; height: 34px; border-radius: 17px; }
@@ -284,6 +306,19 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   const dow = (k) => kd(k).getUTCDay();
   const fmtK = (k, o) => new Intl.DateTimeFormat("en-CA", Object.assign({ timeZone: "UTC" }, o)).format(kd(k));
   const tShort = (d) => timeFmt.format(d).replace(/\s?([ap])\.?m\.?/i, (_, a) => a.toLowerCase()).replace(":00", "");
+  // Registration opening times, e.g. "Sat Oct 31, 10:15p" plus how far off it is.
+  const wdFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, weekday: "short", month: "short", day: "numeric" });
+  const regWhen = (iso) => {
+    const d = new Date(iso), ms = d - Date.now();
+    const when = `${wdFmt.format(d)}, ${tShort(d)}`;
+    if (ms <= 0) return { text: when, rel: "open now", open: true };
+    const h = Math.floor(ms / 3600000), m = Math.round((ms % 3600000) / 60000);
+    return { text: when, rel: h >= 48 ? `in ${Math.round(h / 24)} days` : h >= 1 ? `in ${h}h ${m}m` : `in ${m} min`, open: false };
+  };
+  const isFull = (s) => s.spots_left === 0 || /^\s*full\s*$/i.test(s.spots || "");
+  const isLow = (s) => s.spots_left != null && s.spots_left > 0 && s.spots_left <= 3;
+  const spotsHtml = (s) => isFull(s) ? '<span class="fullpill">Full</span>'
+    : isLow(s) ? `<span class="low">Only ${s.spots_left} left</span>` : esc(s.spots);
   const tRange = (s) => s.all_day ? "All day" : `${tShort(s._s)} – ${tShort(s._e)}`;
   const shortCentre = (c) => (c || "").replace(/\s+Community Centre$/i, " CC").replace(/\s+Centre$/i, "");
 
@@ -305,12 +340,14 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
   // ---- state ----
   const narrow = () => matchMedia("(max-width: 760px)").matches;
+  const DEFAULT_ACTS = ["Drop-In Badminton: Adult and Child"];
   const saved = (() => { try { return JSON.parse(localStorage.getItem("mds.v1") || "{}"); } catch { return {}; } })();
   const state = {
     view: saved.view || (narrow() ? "day" : "week"),
     anchor: dayKey(new Date()),
     cats: new Set(saved.cats || []),
-    acts: new Set(saved.acts || []),
+    // First visit (nothing saved yet) starts on this activity; any later choice, even "none", is remembered.
+    acts: new Set(saved.acts || (saved.cats ? [] : DEFAULT_ACTS)),
     open: new Set(),
     centres: new Set(saved.centres || []),
     q: "",
@@ -458,6 +495,14 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     return `<div class="state"><b>No sessions ${span}</b>${filtered ? "Nothing matches these filters. Try another date or clear a filter." : "Markham hasn't published anything for these dates yet."}</div>`;
   }
 
+  function resLine(s) {
+    const r = s.registration;
+    if (!r) return "";
+    if (!r.residents && !r.members && !r.public) return '<span class="reg">In person only</span>';
+    if (!r.residents) return "";
+    const w = regWhen(r.residents);
+    return `<span class="reg ${w.open ? "open" : ""}">Residents ${w.open ? "open" : "from " + w.text}</span>`;
+  }
   function renderList(main) {
     if (!loading && sessions.length === 0) { main.innerHTML = emptyMsg(); return; }
     const today = dayKey(new Date());
@@ -467,7 +512,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     byDay.forEach((list, k) => {
       h += `<h3 class="${k === today ? "today" : ""}">${fmtK(k, { weekday: "long", month: "long", day: "numeric" })}${k === today ? " (today)" : ""}</h3>`;
       list.forEach((s) => {
-        h += `<button class="row" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")}"><span class="t">${tRange(s)}</span><span><b>${esc(s.name)}</b><span class="w">${esc(s.centre)}${s.facility ? " · " + esc(s.facility) : ""}</span></span><span class="s">${esc(s.spots)}</span></button>`;
+        h += `<button class="row ${isFull(s) ? "full" : ""}" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")}"><span class="t">${tRange(s)}</span><span><b>${esc(s.name)}</b><span class="w">${esc(s.centre)}${s.facility ? " · " + esc(s.facility) : ""}</span></span><span class="s">${spotsHtml(s)}${resLine(s)}</span></button>`;
       });
     });
     main.innerHTML = h + "</div>";
@@ -533,7 +578,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
         const top = y(sa), height = Math.max(y(sb) - top - 2, 18);
         const w = 100 / cols;
         const tall = height >= 44;
-        grid += `<button class="ev ${s._e.getTime() < nowMs ? "past" : ""}" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")};top:${top}px;height:${height}px;left:calc(${col * w}% + 1px);width:calc(${w}% - 3px)" title="${esc(s.name)}, ${tRange(s)}, ${esc(s.centre)}">`
+        grid += `<button class="ev ${s._e.getTime() < nowMs ? "past" : ""} ${isFull(s) ? "full" : ""}" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")};top:${top}px;height:${height}px;left:calc(${col * w}% + 1px);width:calc(${w}% - 3px)" title="${isFull(s) ? "FULL: " : ""}${esc(s.name)}, ${tRange(s)}, ${esc(s.centre)}">${isFull(s) ? '<span class="fulltag">Full</span>' : ""}`
           + `<b>${esc(s.name.replace(/^Drop-?\s?In\s*:?\s*/i, ""))}</b><span class="t">${tShort(s._s)}</span>${tall ? `<span class="w">${esc(shortCentre(s.centre))}</span>` : ""}</button>`;
       });
       more.forEach((m) => {
@@ -562,6 +607,14 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
   // ---- dialogs ----
   const byId = (id) => sessions.find((s) => s.id === id);
+  function regBlock(r) {
+    if (!r) return '<span class="muted">Not looked up yet. Check back after the next refresh.</span>';
+    if (!r.residents && !r.members && !r.public) return "In person only, no online registration";
+    return [["Residents", r.residents], ["Members", r.members], ["Public", r.public]].filter(([, v]) => v).map(([who, v]) => {
+      const w = regWhen(v);
+      return `<div class="regline ${who === "Residents" ? "res" : ""}"><span>${who}</span> ${esc(w.text)} <span class="rel ${w.open ? "open" : ""}">${w.rel}</span></div>`;
+    }).join("");
+  }
   function openDetail(s) {
     const c = colorOf(s.categories[0] || "");
     const addr = [s.address?.street, s.address?.city].filter(Boolean).join(", ");
@@ -575,7 +628,8 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
       <dl>
         ${row("Program", s.categories.map((x) => `<span class="tag" style="--c:${colorOf(x)}">${esc(x)}</span>`).join(""))}
         ${row("Location", `${esc(s.centre)}${s.facility ? `<br><span style="color:var(--ink-2)">${esc(s.facility)}</span>` : ""}${addr ? `<br><a href="${maps}" target="_blank" rel="noopener">${esc(addr)}</a>` : ""}`)}
-        ${row("Spots", s.spots ? esc(s.spots) + asOf : "")}
+        ${row("Spots", isFull(s) ? `<span class="fullpill">Full</span> no spots left${asOf}` : s.spots ? spotsHtml(s) + asOf : "")}
+        ${row("Registration", regBlock(s.registration))}
         ${row("Ages", esc(s.age))}
         ${row("Price", esc(s.price))}
         ${row("Course ID", esc(s.course_id))}
@@ -656,6 +710,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
       $("#meta").innerHTML = when
         ? `Schedule from Markham's booking site, updated ${fmtK(dayKey(when), { month: "short", day: "numeric" })} at ${tShort(when)}.`
         : "The first schedule download is still running. Check back in a few minutes.";
+      $("#meta").insertAdjacentHTML("beforeend", ` <a href="status${TOKEN ? "?token=" + encodeURIComponent(TOKEN) : ""}">Scrape status</a>`);
       render();
     } catch (e) {
       $("#meta").textContent = "Couldn't load the filter lists: " + e.message;

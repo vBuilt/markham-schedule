@@ -90,6 +90,19 @@ func description(s schedule.Session, toronto *time.Location) string {
 		lines = append(lines, fmt.Sprintf("Spots: %s (as of %s)", s.Spots, s.ScrapedAt.In(toronto).Format("Jan 2, 3:04 PM")))
 	}
 	add("Course ID", s.CourseID)
+	if r := s.Registration; r != nil {
+		if !r.Online() {
+			lines = append(lines, "Registration: in person only")
+		}
+		at := func(who string, t *time.Time) {
+			if t != nil {
+				lines = append(lines, who+" register from: "+t.In(toronto).Format("Mon Jan 2, 3:04 PM"))
+			}
+		}
+		at("Residents", r.Residents)
+		at("Members", r.Members)
+		at("Public", r.Public)
+	}
 	out := strings.Join(lines, "\n")
 	if s.Description != "" {
 		out += "\n\n" + s.Description

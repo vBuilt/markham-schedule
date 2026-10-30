@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -26,6 +27,10 @@ type fakeSource struct {
 	errs    map[string]error
 	block   chan struct{} // if set, Calendars waits on it
 	entered chan struct{}
+
+	regCalls []string         // "eventID|occurrenceDate" per Registration call
+	regErr   map[string]error // by eventID
+	regNone  map[string]bool  // by eventID: page has no registration dates
 }
 
 func (f *fakeSource) Calendars(ctx context.Context) ([]perfectmind.Calendar, error) {
@@ -60,6 +65,27 @@ func (f *fakeSource) Classes(ctx context.Context, cal perfectmind.Calendar, from
 }
 
 func (f *fakeSource) AbsURL(p string) string { return "https://x" + p }
+
+// Registration mimics a drop-in course: residents open 21 clock hours before
+// an 8:00 AM start (11:00 AM the day before), members and public 3 hours before.
+func (f *fakeSource) Registration(ctx context.Context, eventID, occurrenceDate string, loc *time.Location) (*time.Time, *time.Time, *time.Time, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.regCalls = append(f.regCalls, eventID+"|"+occurrenceDate)
+	if err := f.regErr[eventID]; err != nil {
+		return nil, nil, nil, err
+	}
+	if f.regNone[eventID] {
+		return nil, nil, nil, nil
+	}
+	d, err := time.ParseInLocation("20060102", occurrenceDate, loc)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	res := d.Add(-13 * time.Hour)
+	mem := d.Add(5 * time.Hour)
+	return &res, &mem, &mem, nil
+}
 
 func cls(id, date, start string) perfectmind.RawClass {
 	return perfectmind.RawClass{EventId: id, EventName: "C" + id, OccurrenceDate: date, FormattedStartTime: start, DurationInMinutes: 60, Facility: "F"}
@@ -447,5 +473,134 @@ func TestRefreshAllEmptyOnEmptyStoreIsSuccess(t *testing.T) {
 	status, err := s.Refresh(context.Background())
 	if err != nil || status.LastSuccess == nil || status.Error != "" {
 		t.Fatalf("err=%v %+v", err, status)
+	}
+}
+
+func regOf(t *testing.T, st *store.Store) map[string]*schedule.Registration {
+	t.Helper()
+	ss, err := st.Sessions(context.Background(), schedule.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]*schedule.Registration{}
+	for _, x := range ss {
+		out[x.Name+"@"+x.Start.Format("0102")] = x.Registration
+	}
+	return out
+}
+
+func TestRegistrationLookedUpOncePerCourse(t *testing.T) {
+	src := &fakeSource{
+		cals:    []perfectmind.Calendar{{ID: "1", Name: "A", BookingLink: "/a"}},
+		classes: map[string][]perfectmind.RawClass{"A": {cls("1", "20261109", "08:00 AM"), cls("1", "20261102", "08:00 AM"), cls("2", "20261103", "08:00 AM")}},
+		regNone: map[string]bool{"2": true},
+	}
+	s, st, _ := setup(t, src)
+	if _, err := s.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(src.regCalls) != 2 || src.regCalls[0] != "1|20261102" {
+		t.Fatalf("calls %v (want one per course, earliest occurrence first)", src.regCalls)
+	}
+	reg := regOf(t, st)
+	for _, k := range []string{"C1@1102", "C1@1109"} {
+		r := reg[k]
+		if r == nil || r.Residents == nil {
+			t.Fatalf("%s: %+v", k, r)
+		}
+		day := r.Residents.In(toronto)
+		if day.Hour() != 11 || day.Day() != map[string]int{"C1@1102": 1, "C1@1109": 8}[k] {
+			t.Fatalf("%s residents %v", k, day)
+		}
+		if r.Members.In(toronto).Hour() != 5 {
+			t.Fatalf("%s members %v", k, r.Members)
+		}
+	}
+	if r := reg["C2@1103"]; r == nil || r.Online() {
+		t.Fatalf("in-person course should have empty, non-nil registration: %+v", r)
+	}
+
+	// A second refresh reuses the saved rules.
+	if _, err := s.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(src.regCalls) != 2 {
+		t.Fatalf("rules should be cached, calls %v", src.regCalls)
+	}
+}
+
+func TestRegistrationLookupBudget(t *testing.T) {
+	src := twoCats()
+	s, st, _ := setup(t, src)
+	s.cfg.RegLookups = 1
+	if _, err := s.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	reg := regOf(t, st)
+	if len(src.regCalls) != 1 || reg["C1@1102"] == nil || reg["C2@1103"] != nil || reg["C3@1104"] != nil {
+		t.Fatalf("calls %v reg %v", src.regCalls, reg)
+	}
+	if _, err := s.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(src.regCalls) != 2 || src.regCalls[1] != "2|20261103" || regOf(t, st)["C2@1103"] == nil {
+		t.Fatalf("next refresh should continue with the next course: %v", src.regCalls)
+	}
+}
+
+func TestRegistrationFailureLeavesUnknown(t *testing.T) {
+	src := twoCats()
+	src.regErr = map[string]error{"1": errors.New("boom")}
+	s, st, _ := setup(t, src)
+	if _, err := s.Refresh(context.Background()); err != nil {
+		t.Fatalf("lookup failures must not fail the refresh: %v", err)
+	}
+	reg := regOf(t, st)
+	if reg["C1@1102"] != nil || reg["C2@1103"] == nil {
+		t.Fatalf("reg %v", reg)
+	}
+}
+
+func TestRegistrationStaleRuleRechecked(t *testing.T) {
+	src := &fakeSource{
+		cals:    []perfectmind.Calendar{{ID: "1", Name: "A", BookingLink: "/a"}},
+		classes: map[string][]perfectmind.RawClass{"A": {cls("1", "20261125", "08:00 AM")}},
+	}
+	s, _, clk := setup(t, src)
+	s.Refresh(context.Background())
+	clk.Add(7 * 24 * time.Hour)
+	s.Refresh(context.Background())
+	if len(src.regCalls) != 1 {
+		t.Fatalf("fresh rule re-fetched: %v", src.regCalls)
+	}
+	clk.Add(8 * 24 * time.Hour)
+	s.Refresh(context.Background())
+	if len(src.regCalls) != 2 {
+		t.Fatalf("rule older than 14 days should be re-checked: %v", src.regCalls)
+	}
+}
+
+func TestRefreshRecordsRuns(t *testing.T) {
+	src := twoCats()
+	s, st, _ := setup(t, src)
+	if _, err := s.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	src.calsErr = errors.New("queue-it")
+	s.Refresh(context.Background())
+
+	runs, err := st.Runs(context.Background(), 0)
+	if err != nil || len(runs) != 2 {
+		t.Fatalf("runs %+v %v", runs, err)
+	}
+	bad, good := runs[0], runs[1]
+	if !good.OK || good.Total != 3 || len(good.Categories) != 2 || good.Categories[0].Count != 2 || good.Error != "" {
+		t.Fatalf("good run %+v", good)
+	}
+	if good.Registration.Courses != 3 || good.Registration.LookedUp != 3 || good.Registration.Unknown != 0 {
+		t.Fatalf("good run registration %+v", good.Registration)
+	}
+	if bad.OK || !strings.Contains(bad.Error, "queue-it") || bad.Started.IsZero() {
+		t.Fatalf("failed run %+v", bad)
 	}
 }

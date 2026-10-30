@@ -3,6 +3,7 @@ package perfectmind
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -22,8 +23,12 @@ func SessionID(r RawClass) string {
 
 var spotsRe = regexp.MustCompile(`^\s*(\d+)\s+spots?\b`)
 
-// ParseSpots returns the number of spots left, or nil when not numeric.
+// ParseSpots returns the number of spots left (0 for "Full"), or nil when unknown.
 func ParseSpots(s string) *int {
+	if strings.EqualFold(strings.TrimSpace(s), "full") {
+		zero := 0
+		return &zero
+	}
 	m := spotsRe.FindStringSubmatch(s)
 	if m == nil {
 		return nil
@@ -83,4 +88,36 @@ func ToSession(r RawClass, category, bookingURL string, loc *time.Location, scra
 		BookingURL:  bookingURL,
 		ScrapedAt:   scrapedAt,
 	}, nil
+}
+
+var regFieldRe = regexp.MustCompile(`"(ResidentsRegistrationDateValue|MembersRegistrationDateValue|PublicRegistrationStartDateValue)":(null|"([^"]*)")`)
+
+// ParseRegistration reads the registration opening times embedded in a class
+// landing page (BookMe4LandingPages/Class). Values are local times without an
+// offset. A nil result means that audience has no online registration date. It
+// is an error if the page carries none of the fields (e.g. an error page).
+func ParseRegistration(page []byte, loc *time.Location) (residents, members, public *time.Time, err error) {
+	found := false
+	for _, m := range regFieldRe.FindAllSubmatch(page, -1) {
+		found = true
+		if len(m[3]) == 0 {
+			continue
+		}
+		t, perr := time.ParseInLocation("2006-01-02T15:04:05", string(m[3]), loc)
+		if perr != nil {
+			return nil, nil, nil, fmt.Errorf("parse %s %q: %w", m[1], m[3], perr)
+		}
+		switch string(m[1]) {
+		case "ResidentsRegistrationDateValue":
+			residents = &t
+		case "MembersRegistrationDateValue":
+			members = &t
+		case "PublicRegistrationStartDateValue":
+			public = &t
+		}
+	}
+	if !found {
+		return nil, nil, nil, errors.New("no registration fields on class page")
+	}
+	return residents, members, public, nil
 }

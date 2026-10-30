@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -11,6 +12,8 @@ type Config struct {
 	ListenAddr, DataDir, APIToken, LogLevel string
 	RefreshInterval, RequestDelay           time.Duration
 	Horizon, Retention                      time.Duration
+	// RegLookups caps registration-page fetches per refresh; 0 disables them.
+	RegLookups int
 }
 
 // Load reads configuration using getenv (typically os.Getenv).
@@ -54,6 +57,14 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if c.Retention, err = dur("RETENTION", "336h", true); err != nil {
 		return Config{}, err
+	}
+	c.RegLookups = 600
+	if v := getenv("REG_LOOKUPS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return Config{}, fmt.Errorf("REG_LOOKUPS: invalid value %q (want a whole number, 0 to disable)", v)
+		}
+		c.RegLookups = n
 	}
 	return c, nil
 }

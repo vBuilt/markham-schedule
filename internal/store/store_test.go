@@ -317,3 +317,52 @@ func TestActivities(t *testing.T) {
 		}
 	}
 }
+
+func TestRegRules(t *testing.T) {
+	s, path := openT(t)
+	ctx := context.Background()
+	if rules, err := s.RegRules(ctx); err != nil || len(rules) != 0 {
+		t.Fatalf("empty: %v %v", rules, err)
+	}
+	before := int64(21 * 3600)
+	fetched := time.Date(2026, 10, 30, 1, 0, 0, 0, time.UTC)
+	r := schedule.RegRule{Residents: schedule.RegTime{Before: &before}, Fetched: fetched}
+	if err := s.SaveRegRule(ctx, "ev-1", r); err != nil {
+		t.Fatal(err)
+	}
+	r.Fetched = fetched.Add(time.Hour) // upsert
+	if err := s.SaveRegRule(ctx, "ev-1", r); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	s2, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s2.Close()
+	rules, err := s2.RegRules(ctx)
+	got, ok := rules["ev-1"]
+	if err != nil || len(rules) != 1 || !ok || *got.Residents.Before != before || !got.Fetched.Equal(fetched.Add(time.Hour)) {
+		t.Fatalf("%v %+v %v", rules, got, err)
+	}
+}
+
+func TestRuns(t *testing.T) {
+	s, _ := openT(t)
+	ctx := context.Background()
+	base := time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < maxRuns+5; i++ {
+		r := schedule.Run{Started: base.Add(time.Duration(i) * time.Hour), Total: i, OK: i%2 == 0}
+		if err := s.AddRun(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runs, err := s.Runs(ctx, 3)
+	if err != nil || len(runs) != 3 || runs[0].Total != maxRuns+4 || runs[2].Total != maxRuns+2 {
+		t.Fatalf("newest first: %+v %v", runs, err)
+	}
+	all, _ := s.Runs(ctx, 0)
+	if len(all) != maxRuns || all[len(all)-1].Total != 5 {
+		t.Fatalf("kept %d runs, oldest total %d", len(all), all[len(all)-1].Total)
+	}
+}

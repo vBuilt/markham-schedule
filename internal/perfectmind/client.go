@@ -325,3 +325,41 @@ func (c *Client) postOnce(ctx context.Context, pageURL, postURL string, form url
 	}
 	return nil
 }
+
+// Registration fetches one occurrence's class landing page and returns when
+// online registration opens for residents, members and the public. occurrenceDate
+// is YYYYMMDD. It is a plain GET (no token) and honours Delay like every request.
+func (c *Client) Registration(ctx context.Context, eventID, occurrenceDate string, loc *time.Location) (residents, members, public *time.Time, err error) {
+	if err := c.wait(ctx); err != nil {
+		return nil, nil, nil, err
+	}
+	q := url.Values{
+		"widgetId":                  {c.o.WidgetID},
+		"redirectedFromEmbededMode": {"False"},
+		"classId":                   {eventID},
+		"occurrenceDate":            {occurrenceDate},
+	}
+	pageURL := c.AbsURL("/Clients/BookMe4LandingPages/Class?" + q.Encode())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	req.Header.Set("User-Agent", c.o.UserAgent)
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, nil, fmt.Errorf("GET class %s/%s: status %d", eventID, occurrenceDate, resp.StatusCode)
+	}
+	residents, members, public, err = ParseRegistration(body, loc)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("class %s/%s: %w", eventID, occurrenceDate, err)
+	}
+	return residents, members, public, nil
+}

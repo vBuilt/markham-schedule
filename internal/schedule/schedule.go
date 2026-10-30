@@ -31,7 +31,9 @@ type Session struct {
 	SpotsLeft   *int      `json:"spots_left"`
 	CourseID    string    `json:"course_id"`
 	BookingURL  string    `json:"booking_url"`
-	ScrapedAt   time.Time `json:"scraped_at"`
+	// Registration is nil until the course's registration rule has been looked up.
+	Registration *Registration `json:"registration"`
+	ScrapedAt    time.Time     `json:"scraped_at"`
 }
 
 // Filter selects sessions. Values within a field are ORed, fields are ANDed;
@@ -98,6 +100,28 @@ type CategoryResult struct {
 	OK    bool   `json:"ok"`
 	Count int    `json:"count"`
 	Error string `json:"error,omitempty"`
+	// DurationMS is how long fetching this category took.
+	DurationMS int64 `json:"duration_ms"`
+}
+
+// RegStats summarises one refresh's registration-page lookups.
+type RegStats struct {
+	Courses  int `json:"courses"`   // distinct courses seen this run
+	LookedUp int `json:"looked_up"` // pages fetched this run
+	Failed   int `json:"failed"`
+	Unknown  int `json:"unknown"` // courses still without a rule afterwards
+}
+
+// Run is the record of one refresh attempt, kept for the status page.
+type Run struct {
+	Started      time.Time        `json:"started"`
+	Finished     time.Time        `json:"finished"`
+	DurationMS   int64            `json:"duration_ms"`
+	OK           bool             `json:"ok"`
+	Error        string           `json:"error,omitempty"`
+	Categories   []CategoryResult `json:"categories"`
+	Total        int              `json:"total"`
+	Registration RegStats         `json:"registration"`
 }
 
 type Status struct {

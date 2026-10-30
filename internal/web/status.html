@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scrape status · Markham drop-in</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2312303b'/%3E%3Cpath d='M6 12h20M6 18h20M6 24h20' stroke='%23d9443a' stroke-width='2.5' stroke-dasharray='3 2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --tile: #f3f7f8; --surface: #fff; --ink: #12303b; --ink-2: #4d6670; --grout: #d8e3e6; --grout-2: #ebf1f3;
+  --good: #2f8f4e; --warn: #b7791f; --bad: #d9443a; --bar: #1d6fb8;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --tile: #0e1c22; --surface: #132831; --ink: #e4eef1; --ink-2: #93abb4; --grout: #24414c; --grout-2: #1a333d;
+    --good: #5cc27e; --warn: #e3a948; --bad: #ff6a5c; --bar: #6bb7ff; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--tile); color: var(--ink); font: 15px/1.45 var(--font); }
+a { color: inherit; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: calc(16px + env(safe-area-inset-top)) 16px 48px; }
+header { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+header h1 { margin: 0; font-size: 22px; }
+header a { color: var(--ink-2); }
+.hero { background: var(--surface); border: 1px solid var(--grout); border-left: 8px solid var(--state, var(--ink-2)); border-radius: 10px; padding: 18px 20px; }
+.hero .state { font-size: 28px; font-weight: 700; color: var(--state); line-height: 1.1; }
+.hero p { margin: 6px 0 0; color: var(--ink-2); max-width: 75ch; }
+.hero p b { color: var(--ink); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 14px 0 22px; }
+.stat { background: var(--surface); border: 1px solid var(--grout); border-radius: 10px; padding: 12px 14px; }
+.stat .n { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .l { color: var(--ink-2); font-size: 14px; }
+.cov { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--grout-2); margin: 8px 0 6px; }
+.cov span { display: block; }
+.legend { font-size: 13px; color: var(--ink-2); display: flex; gap: 12px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; }
+h2 { font-size: 17px; margin: 26px 0 8px; }
+h2 small { font-weight: 400; color: var(--ink-2); font-size: 14px; margin-left: 6px; }
+.card { background: var(--surface); border: 1px solid var(--grout); border-radius: 10px; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--grout-2); white-space: nowrap; }
+th { color: var(--ink-2); font-weight: 400; font-size: 13px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.err { white-space: normal; color: var(--bad); min-width: 220px; }
+tr:last-child td { border-bottom: 0; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; color: #fff; background: var(--c); }
+.up { color: var(--good); } .down { color: var(--bad); }
+.chart { padding: 12px 12px 4px; }
+.chart svg { display: block; width: 100%; height: 160px; }
+.chart .axis { fill: var(--ink-2); font-size: 11px; }
+.note { color: var(--ink-2); font-size: 13px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Scrape status</h1><a href="./" id="back">Back to the calendar</a><span class="note" id="ver"></span></header>
+  <section class="hero" id="hero"><div class="state">Loading…</div></section>
+  <div class="stats" id="stats"></div>
+
+  <h2>Latest refresh by program <small id="latestWhen"></small></h2>
+  <div class="card"><table id="cats"></table></div>
+
+  <h2>Recent refreshes <small>bars: time taken (red = failed), line: sessions stored</small></h2>
+  <div class="card chart" id="chart"></div>
+  <div class="card" style="margin-top:12px"><table id="runs"></table></div>
+  <p class="note">This page updates itself every minute.</p>
+</div>
+<script>
+(() => {
+  "use strict";
+  const TZ = "America/Toronto";
+  const TOKEN = new URLSearchParams(location.search).get("token") || "";
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const api = async (p) => { const r = await fetch(p + (p.includes("?") ? "&" : "?") + (TOKEN ? "token=" + encodeURIComponent(TOKEN) : "")); if (!r.ok) throw new Error(`${p} returned HTTP ${r.status}`); return r.json(); };
+  if (TOKEN) $("#back").href = "./?token=" + encodeURIComponent(TOKEN);
+
+  const dtFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const tFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, hour: "numeric", minute: "2-digit" });
+  const when = (iso) => iso ? dtFmt.format(new Date(iso)) : "never";
+  const ago = (iso) => {
+    if (!iso) return "never";
+    const m = Math.round((Date.now() - new Date(iso)) / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m} min ago`;
+    const h = Math.floor(m / 60);
+    return h < 48 ? `${h}h ${m % 60}m ago` : `${Math.round(h / 24)} days ago`;
+  };
+  const dur = (ms) => { const s = Math.round(ms / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`; };
+  const n = (x) => Number(x || 0).toLocaleString("en-CA");
+
+  function health(st, runs) {
+    const interval = (st.refresh_interval_seconds || 10800) * 1000;
+    const last = st.last_success ? new Date(st.last_success) : null;
+    const age = last ? Date.now() - last : Infinity;
+    const latest = runs[0];
+    const failedCats = (latest?.categories || []).filter((c) => !c.ok).length;
+    if (!last) return { label: "Starting up", color: "var(--warn)", text: "No successful refresh yet. The first one takes about 4 minutes after the container starts." };
+    if (age > interval * 2.5) return { label: "Failing", color: "var(--bad)", text: `The last good refresh was <b>${ago(st.last_success)}</b>. Recent attempts are failing${st.error ? `: <b>${esc(st.error)}</b>` : ""}. The calendar still shows the last good data.` };
+    if (age > interval * 1.5 || (latest && !latest.ok)) return { label: "Behind", color: "var(--warn)", text: `The last good refresh was <b>${ago(st.last_success)}</b>.${latest && !latest.ok ? ` The most recent attempt failed (${esc(latest.error)}); it retries in about 15 minutes.` : ""}` };
+    if (failedCats) return { label: "Partly working", color: "var(--warn)", text: `The last refresh was <b>${ago(st.last_success)}</b>, but ${failedCats} program${failedCats > 1 ? "s" : ""} failed and kept their previous data.` };
+    return { label: "Healthy", color: "var(--good)", text: `Last refreshed <b>${ago(st.last_success)}</b> (${when(st.last_success)}). Next refresh due around <b>${(() => { const nx = new Date(last.getTime() + interval); return nx - Date.now() < 20 * 3600000 ? tFmt.format(nx) : dtFmt.format(nx); })()}</b>.` };
+  }
+
+  function renderStats(st, runs) {
+    const h = health(st, runs);
+    const hero = $("#hero");
+    hero.style.setProperty("--state", h.color);
+    hero.innerHTML = `<div class="state">${h.label}</div><p>${h.text}</p>`;
+    $("#ver").textContent = st.version ? `Version ${st.version}` : "";
+
+    const okRuns = runs.filter((r) => r.ok);
+    const avg = okRuns.length ? okRuns.reduce((a, r) => a + r.duration_ms, 0) / okRuns.length : 0;
+    const latest = runs[0];
+    const cats = st.categories || [];
+    const reg = st.registration || { online: 0, in_person: 0, unknown: 0 };
+    const regTotal = reg.online + reg.in_person + reg.unknown || 1;
+    const pct = (x) => (100 * x / regTotal).toFixed(1) + "%";
+    const recent = runs.slice(0, 24), fails = recent.filter((r) => !r.ok).length;
+    $("#stats").innerHTML = `
+      <div class="stat"><div class="n">${n(st.total)}</div><div class="l">sessions stored</div></div>
+      <div class="stat"><div class="n">${cats.filter((c) => c.ok).length} / ${cats.length}</div><div class="l">programs refreshed OK last time</div></div>
+      <div class="stat"><div class="n">${latest ? dur(latest.duration_ms) : "–"}</div><div class="l">last refresh took${avg ? ` (average ${dur(avg)})` : ""}</div></div>
+      <div class="stat"><div class="n">${recent.length ? `${recent.length - fails} / ${recent.length}` : "–"}</div><div class="l">recent refreshes succeeded</div></div>
+      <div class="stat"><div class="n">${pct(reg.online + reg.in_person)}</div><div class="l">sessions with registration dates</div>
+        <div class="cov"><span style="width:${pct(reg.online)};background:var(--good)"></span><span style="width:${pct(reg.in_person)};background:var(--ink-2)"></span></div>
+        <div class="legend"><span><i style="background:var(--good)"></i>${n(reg.online)} online</span><span><i style="background:var(--ink-2)"></i>${n(reg.in_person)} in person</span><span><i style="background:var(--grout)"></i>${n(reg.unknown)} not looked up yet</span></div></div>`;
+  }
+
+  function renderCats(runs) {
+    const latest = runs[0], prev = runs.find((r, i) => i > 0 && r.categories?.length);
+    if (!latest) { $("#cats").innerHTML = `<tr><td>No refreshes recorded yet.</td></tr>`; $("#latestWhen").textContent = ""; return; }
+    $("#latestWhen").textContent = `${when(latest.started)}, took ${dur(latest.duration_ms)}`;
+    const before = new Map((prev?.categories || []).map((c) => [c.name, c.count]));
+    const rows = (latest.categories || []).map((c) => {
+      const p = before.get(c.name), d = c.ok && p != null ? c.count - p : null;
+      const delta = d == null || d === 0 ? "" : `<span class="${d > 0 ? "up" : "down"}">${d > 0 ? "+" : ""}${n(d)}</span>`;
+      return `<tr><td>${esc(c.name)}</td><td><span class="pill" style="--c:${c.ok ? "var(--good)" : "var(--bad)"}">${c.ok ? "OK" : "Failed"}</span></td>
+        <td class="num">${c.ok ? n(c.count) : "–"}</td><td class="num">${delta}</td><td class="num">${dur(c.duration_ms || 0)}</td><td class="err">${esc(c.error || "")}</td></tr>`;
+    }).join("");
+    $("#cats").innerHTML = `<thead><tr><th>Program</th><th>Result</th><th class="num">Sessions</th><th class="num">Change</th><th class="num">Fetch time</th><th>Error</th></tr></thead><tbody>${rows || `<tr><td colspan="6">${esc(latest.error || "No programs fetched in this run.")}</td></tr>`}</tbody>`;
+  }
+
+  function renderRuns(runs) {
+    $("#runs").innerHTML = `<thead><tr><th>Started</th><th>Result</th><th class="num">Took</th><th class="num">Programs OK</th><th class="num">Sessions</th><th class="num">Registration lookups</th><th>Error</th></tr></thead><tbody>` +
+      (runs.length ? runs.map((r) => {
+        const cats = r.categories || [], ok = cats.filter((c) => c.ok).length;
+        const reg = r.registration || {};
+        const regText = reg.courses ? `${n(reg.looked_up)} fetched${reg.failed ? `, <span class="down">${reg.failed} failed</span>` : ""}${reg.unknown ? `, ${n(reg.unknown)} to go` : ""}` : "–";
+        return `<tr><td>${when(r.started)}</td><td><span class="pill" style="--c:${r.ok ? (ok < cats.length ? "var(--warn)" : "var(--good)") : "var(--bad)"}">${r.ok ? (ok < cats.length ? "Partial" : "OK") : "Failed"}</span></td>
+          <td class="num">${dur(r.duration_ms)}</td><td class="num">${cats.length ? `${ok} / ${cats.length}` : "–"}</td><td class="num">${n(r.total)}</td><td class="num">${regText}</td><td class="err">${esc(r.error || "")}</td></tr>`;
+      }).join("") : `<tr><td colspan="7">No refreshes recorded yet. The first one is running or about to start.</td></tr>`) + "</tbody>";
+  }
+
+  function renderChart(runs) {
+    const data = runs.slice(0, 60).reverse();
+    if (data.length < 2) { $("#chart").innerHTML = `<p class="note" style="margin:4px">The chart appears after a couple of refreshes.</p>`; return; }
+    const W = 1000, H = 160, padL = 40, padR = 46, padT = 10, padB = 22;
+    const iw = W - padL - padR, ih = H - padT - padB, bw = iw / data.length;
+    const maxD = Math.max(...data.map((r) => r.duration_ms), 1);
+    const totals = data.map((r) => r.total), maxT = Math.max(...totals, 1);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Refresh durations and session counts">`;
+    svg += `<text class="axis" x="${padL - 6}" y="${padT + 8}" text-anchor="end">${dur(maxD)}</text><text class="axis" x="${padL - 6}" y="${padT + ih}" text-anchor="end">0</text>`;
+    svg += `<text class="axis" x="${W - padR + 6}" y="${padT + 8}">${n(maxT)}</text>`;
+    data.forEach((r, i) => {
+      const h = Math.max((r.duration_ms / maxD) * ih, 2);
+      svg += `<rect x="${padL + i * bw + bw * 0.15}" y="${padT + ih - h}" width="${bw * 0.7}" height="${h}" fill="${r.ok ? "var(--bar)" : "var(--bad)"}" opacity="${r.ok ? 0.55 : 0.9}"><title>${esc(when(r.started))}: ${dur(r.duration_ms)}, ${n(r.total)} sessions${r.error ? ", " + esc(r.error) : ""}</title></rect>`;
+    });
+    const pts = data.map((r, i) => `${padL + i * bw + bw / 2},${padT + ih - (r.total / maxT) * ih}`).join(" ");
+    svg += `<polyline points="${pts}" fill="none" stroke="var(--ink)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+    svg += `<text class="axis" x="${padL}" y="${H - 6}">${esc(when(data[0].started))}</text><text class="axis" x="${W - padR}" y="${H - 6}" text-anchor="end">${esc(when(data[data.length - 1].started))}</text></svg>`;
+    $("#chart").innerHTML = svg;
+  }
+
+  async function load() {
+    try {
+      const [st, runs] = await Promise.all([api("/api/status"), api("/api/runs?limit=100")]);
+      renderStats(st, runs); renderCats(runs); renderChart(runs); renderRuns(runs);
+    } catch (e) {
+      $("#hero").style.setProperty("--state", "var(--bad)");
+      $("#hero").innerHTML = `<div class="state">Can't reach the service</div><p>${esc(e.message)}. Check that the container is running on vNas.</p>`;
+    }
+  }
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 60000);
+})();
+</script>
+</body>
+</html>

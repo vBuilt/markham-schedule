@@ -24,6 +24,7 @@ type Store interface {
 	Categories(ctx context.Context) ([]store.CategoryCount, error)
 	Centres(ctx context.Context) ([]store.CentreCount, error)
 	Activities(ctx context.Context) ([]store.ActivityCount, error)
+	Runs(ctx context.Context, limit int) ([]schedule.Run, error)
 	LoadStatus(ctx context.Context) (schedule.Status, error)
 }
 
@@ -70,6 +71,8 @@ func New(st Store, o Options) http.Handler {
 	mux.HandleFunc("GET /api/centres", s.auth(s.centres))
 	mux.HandleFunc("GET /api/activities", s.auth(s.activities))
 	mux.HandleFunc("GET /api/status", s.auth(s.status))
+	mux.HandleFunc("GET /api/runs", s.auth(s.runs))
+	mux.HandleFunc("GET /status", s.auth(web.Status))
 	return mux
 }
 
@@ -202,6 +205,27 @@ func (s *server) activities(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, v)
 }
 
+func (s *server) runs(w http.ResponseWriter, r *http.Request) {
+	limit := 50
+	if v := r.URL.Query().Get("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			writeErr(w, http.StatusBadRequest, "invalid limit")
+			return
+		}
+		limit = min(n, 300)
+	}
+	v, err := s.st.Runs(r.Context(), limit)
+	if err != nil {
+		internalErr(w, r, err)
+		return
+	}
+	if v == nil {
+		v = []schedule.Run{}
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
 func (s *server) centres(w http.ResponseWriter, r *http.Request) {
 	v, err := s.st.Centres(r.Context())
 	if err != nil {
@@ -223,11 +247,33 @@ func (s *server) status(w http.ResponseWriter, r *http.Request) {
 	if st.Categories == nil {
 		st.Categories = []schedule.CategoryResult{}
 	}
+	all, err := s.st.Sessions(r.Context(), schedule.Filter{})
+	if err != nil {
+		internalErr(w, r, err)
+		return
+	}
+	var cov struct {
+		Online   int `json:"online"`
+		InPerson int `json:"in_person"`
+		Unknown  int `json:"unknown"`
+	}
+	for _, x := range all {
+		switch {
+		case x.Registration == nil:
+			cov.Unknown++
+		case x.Registration.Online():
+			cov.Online++
+		default:
+			cov.InPerson++
+		}
+	}
 	writeJSON(w, http.StatusOK, struct {
 		schedule.Status
-		Version   string     `json:"version"`
-		UpdatedAt *time.Time `json:"updated_at"`
-	}{st, s.o.Version, st.LastSuccess})
+		Version                string     `json:"version"`
+		UpdatedAt              *time.Time `json:"updated_at"`
+		RefreshIntervalSeconds int64      `json:"refresh_interval_seconds"`
+		Registration           any        `json:"registration"`
+	}{st, s.o.Version, st.LastSuccess, int64(s.o.Refresh / time.Second), cov})
 }
 
 func (s *server) calendar(w http.ResponseWriter, r *http.Request) {

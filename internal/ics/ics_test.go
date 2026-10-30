@@ -114,3 +114,29 @@ func TestEmptyCalendarValid(t *testing.T) {
 		t.Errorf("bad empty calendar:\n%s", out)
 	}
 }
+
+func TestRegistrationInDescription(t *testing.T) {
+	s := sess("r1")
+	res := time.Date(2026, 10, 31, 23, 5, 0, 0, toronto)
+	mem := time.Date(2026, 11, 1, 17, 5, 0, 0, toronto)
+	s.Registration = &schedule.Registration{Residents: &res, Members: &mem, Public: &mem}
+	out := unfold(render(t, []schedule.Session{s}))
+	for _, want := range []string{
+		`Residents register from: Sat Oct 31\, 11:05 PM`,
+		`Members register from: Sun Nov 1\, 5:05 PM`,
+		`Public register from: Sun Nov 1\, 5:05 PM`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in\n%s", want, out)
+		}
+	}
+
+	s.Registration = &schedule.Registration{}
+	if out := unfold(render(t, []schedule.Session{s})); !strings.Contains(out, "Registration: in person only") {
+		t.Fatalf("in-person line missing:\n%s", out)
+	}
+	s.Registration = nil
+	if out := render(t, []schedule.Session{s}); strings.Contains(out, "egist") {
+		t.Fatal("unknown registration should add nothing")
+	}
+}

@@ -141,7 +141,10 @@ func TestParseSpots(t *testing.T) {
 			t.Errorf("%q: got %v want %d", in, got, want)
 		}
 	}
-	for _, in := range []string{"", "Full", "Waitlist"} {
+	if n := ParseSpots(" Full "); n == nil || *n != 0 {
+		t.Errorf("Full should parse as 0 spots, got %v", n)
+	}
+	for _, in := range []string{"", "Waitlist"} {
 		if got := ParseSpots(in); got != nil {
 			t.Errorf("%q: got %d want nil", in, *got)
 		}
@@ -163,5 +166,33 @@ func TestToSessionNormalisesNameWhitespace(t *testing.T) {
 	}
 	if s.Name != "Drop-In Recreational Skate" {
 		t.Fatalf("name %q", s.Name)
+	}
+}
+
+func TestParseRegistration(t *testing.T) {
+	loc := toronto(t)
+	b, err := os.ReadFile("testdata/class_registration.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, mem, pub, err := ParseRegistration(b, loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || res.Format(time.RFC3339) != "2026-10-31T22:15:00-04:00" {
+		t.Fatalf("residents %v", res)
+	}
+	if mem == nil || mem.Format(time.RFC3339) != "2026-11-01T16:15:00-05:00" || pub == nil || !pub.Equal(*mem) {
+		t.Fatalf("members %v public %v", mem, pub)
+	}
+
+	b, _ = os.ReadFile("testdata/class_in_person.html")
+	res, mem, pub, err = ParseRegistration(b, loc)
+	if err != nil || res != nil || mem != nil || pub != nil {
+		t.Fatalf("in-person page: %v %v %v %v", res, mem, pub, err)
+	}
+
+	if _, _, _, err := ParseRegistration([]byte("<html>Oops... there is an error</html>"), loc); err == nil {
+		t.Fatal("page without registration fields should be an error")
 	}
 }

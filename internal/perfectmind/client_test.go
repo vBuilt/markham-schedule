@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -321,5 +322,40 @@ func TestAbsURL(t *testing.T) {
 	}
 	if got := c.AbsURL("https://y.example/z"); got != "https://y.example/z" {
 		t.Errorf("got %q", got)
+	}
+}
+
+func TestRegistrationFetchesClassPage(t *testing.T) {
+	page, err := os.ReadFile("testdata/class_registration.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Clients/BookMe4LandingPages/Class" {
+			http.NotFound(w, r)
+			return
+		}
+		gotQuery = r.URL.Query()
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(page)
+	}))
+	defer srv.Close()
+	c := New(Options{BaseURL: srv.URL, WidgetID: "w1"})
+	loc, _ := time.LoadLocation("America/Toronto")
+	res, mem, _, err := c.Registration(context.Background(), "ev-1", "20261101", loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotQuery.Get("classId") != "ev-1" || gotQuery.Get("occurrenceDate") != "20261101" || gotQuery.Get("widgetId") != "w1" {
+		t.Fatalf("query %v", gotQuery)
+	}
+	if res == nil || mem == nil || res.Hour() != 22 {
+		t.Fatalf("res %v mem %v", res, mem)
+	}
+
+	srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) })
+	if _, _, _, err := c.Registration(context.Background(), "ev-1", "20261101", loc); err == nil {
+		t.Fatal("expected error on 500")
 	}
 }

@@ -108,6 +108,7 @@ func run(cfg config.Config, once bool) int {
 	})
 	sc := scraper.New(pm, st, scraper.Config{
 		Horizon: cfg.Horizon, Retention: cfg.Retention, Interval: cfg.RefreshInterval, Loc: loc,
+		RegLookups: regLookups(cfg.RegLookups),
 	}, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -167,4 +168,12 @@ func printSummary(s schedule.Status, refreshErr error) int {
 		return 1
 	}
 	return 0
+}
+
+// regLookups maps the config value (0 = off) onto scraper.Config (negative = off).
+func regLookups(n int) int {
+	if n == 0 {
+		return -1
+	}
+	return n
 }

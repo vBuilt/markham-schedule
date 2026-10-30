@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS session_categories(
   session_id TEXT NOT NULL, category TEXT NOT NULL, PRIMARY KEY(session_id, category));
 CREATE INDEX IF NOT EXISTS session_categories_cat ON session_categories(category);
 CREATE TABLE IF NOT EXISTS status(id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS reg_rules(event_id TEXT PRIMARY KEY, data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS runs(id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT NOT NULL);
 `
 
 type Store struct {
@@ -356,4 +358,81 @@ func (s *Store) LoadStatus(ctx context.Context) (schedule.Status, error) {
 	}
 	err = json.Unmarshal([]byte(data), &st)
 	return st, err
+}
+
+// RegRules returns every saved registration rule, keyed by PerfectMind EventId.
+func (s *Store) RegRules(ctx context.Context) (map[string]schedule.RegRule, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT event_id, data FROM reg_rules`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]schedule.RegRule{}
+	for rows.Next() {
+		var id, data string
+		if err := rows.Scan(&id, &data); err != nil {
+			return nil, err
+		}
+		var r schedule.RegRule
+		if err := json.Unmarshal([]byte(data), &r); err != nil {
+			return nil, fmt.Errorf("reg rule %s: %w", id, err)
+		}
+		out[id] = r
+	}
+	return out, rows.Err()
+}
+
+// SaveRegRule inserts or replaces the registration rule for one EventId.
+func (s *Store) SaveRegRule(ctx context.Context, eventID string, r schedule.RegRule) error {
+	data, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx,
+		`INSERT INTO reg_rules(event_id, data) VALUES(?, ?) ON CONFLICT(event_id) DO UPDATE SET data=excluded.data`,
+		eventID, string(data))
+	return err
+}
+
+// maxRuns is how many refresh records are kept for the status page.
+const maxRuns = 300
+
+// AddRun records one refresh attempt and trims history to maxRuns.
+func (s *Store) AddRun(ctx context.Context, r schedule.Run) error {
+	data, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	return s.tx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO runs(data) VALUES(?)`, string(data)); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `DELETE FROM runs WHERE id <= (SELECT MAX(id) FROM runs) - ?`, maxRuns)
+		return err
+	})
+}
+
+// Runs returns the most recent refresh records, newest first. limit <= 0 means all kept.
+func (s *Store) Runs(ctx context.Context, limit int) ([]schedule.Run, error) {
+	if limit <= 0 {
+		limit = maxRuns
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM runs ORDER BY id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []schedule.Run{}
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		var r schedule.Run
+		if err := json.Unmarshal([]byte(data), &r); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

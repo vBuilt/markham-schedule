@@ -1,0 +1,1536 @@
+
+
+<!DOCTYPE html>
+<html class="bm-full-page" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" data-rootUrl="/">
+    <head><link rel="icon" href="/Content/Images/Rocket_ICON.ico" /><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        
+        <!--Required scripts needed for menus-->
+       <script type="text/javascript">
+           if (!window.jQuery) {
+               document.write('<script crossorigin="anonymous" src="/Scripts/jQueryCore/jQueryCoreMin.js?10211046">\x3C/script>');
+               document.write('<script crossorigin="anonymous" src="/Scripts/jQueryCore/jquery-migrate-3.3.2.min.js?10211046">\x3C/script>');
+           }
+       </script>
+        <script crossorigin="anonymous" src="/Scripts/Kendo/kendo.all.min.js?10211046" type="text/javascript"></script>
+        <script crossorigin="anonymous" src="/Scripts/Kendo/kendo.aspnetmvc.min.js?10211046" type="text/javascript"></script>
+
+        
+    <title>Drop-In Aquafit: Shallow/Deep</title>
+
+    <meta property="og:title" content="Drop-In Aquafit: Shallow/Deep" />
+    
+
+<link rel="stylesheet" href="/Content/compass/css/BookMe/BookMe4-Theme.css?10211046" type="text/css" />
+<link href="/Content/jQueryUI/ui-lightness/jquery-ui.css?10211046" type="text/css" rel="stylesheet" />
+
+<link href="/Content/Kendo/kendo.common.min.css?10211046" rel="stylesheet" type="text/css" />
+<link href="/Content/Kendo/kendo.bootstrap.min.css?10211046" rel="stylesheet" type="text/css" />
+<link href="/Content/Fonts/BookMe/styles.css?10211046" rel="stylesheet" type="text/css" />
+<link href="/Content/Fonts/FontAwesome/css/font-awesome.min.css?10211046" rel="stylesheet" type="text/css" />
+<link rel="stylesheet" href="/Content/compass/css/BookMe/BookMe4-Embed.css?10211046" type="text/css" />
+<link rel="stylesheet" href="/Content/compass/css/BookMe/BookMe4-CoursesClasses.css?10211046" type="text/css" />
+<link rel="stylesheet" href="/Content/lightbox.css?10211046" type="text/css" />
+<link rel="stylesheet" href="/Scripts/malihuScrollbar/jquery.mCustomScrollbar.css?10211046" type="text/css" />
+
+
+<script crossorigin="anonymous" src="/Scripts/BookMe4/Resources/Resources.en-CA.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/Resources/Resources.en-CA.js?10211046" type="text/javascript"></script>
+
+<!--For logged-in users we use BookMe4Authentificated master page where these scripts are already included. Duplicating these scripts caused KendoDropDown list issue on Android devices (for Android version 9 and higher).-->
+
+
+<script crossorigin="anonymous" src="/Scripts/jQueryUi/jQueryUi.min.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/MicrosoftAjax.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/MicrosoftMvcAjax.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/MicrosoftMvcValidation.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/perfectMind/PMCommonHeadLoadingFull.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/perfectMind/PMCommonFull.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/Kendo/kendo.all.min.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/Kendo/kendo.aspnetmvc.min.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/utils/json2min.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/perfectMind/ByPassLinkManager.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/malihuScrollbar/jquery.mCustomScrollbar.concat.min.js?10211046" type="text/javascript"></script>
+
+<script type="text/javascript">
+    var require =
+    {
+        baseUrl: '/Scripts/perfectMind',
+        paths: {
+            "linq": "../linq.min",
+            "knockout": "../knockout-3.5.1",
+            "timepicker": "../jquery.timepicker.min",
+            "kendo-all": "../Kendo/kendo.all.min",
+            "kendo.timezones.min": "../Kendo/kendo.timezones.min",
+            "PlannerUtility": "planner/PlannerUtility",
+            "CommonBindings": "planner/CommonBindings",
+            "PlannerFilter": "planner/PlannerFilter",
+            "PlannerEvent": "planner/PlannerEvent",
+            "PlannerAttendance": "planner/PlannerAttendance",
+            "PerfectScanAutoComplete": "../Attendance/PerfectScanAutoComplete",
+            "ItemDiscountEditViewUI": "discount/ItemDiscountEditViewUI",
+            "ItemDiscountDetailViewUI": "discount/ItemDiscountDetailViewUI",
+            "DiscountEditViewUI": "discount/DiscountEditViewUI",
+            "DiscountDetailViewUI": "discount/DiscountDetailViewUI",
+            "managePickList": "managePickList",
+            "classPage": "../Attendance/ClassPage",
+            'activitySearch': '../BookMe4/activity.search',
+            'courses-booking': '../BookMe4/Controllers/CourseBookingController',
+            'startpage': '../BookMe4/Controllers/StartPageController',
+            'searchPage': '../BookMe4/Controllers/BookMe4SearchController',
+            'BookMeConstants': '../BookMe4/constants',
+            'FacilityList': '../Bookme4/Controllers/FacilityListController',
+            'FacilityLandingPageController': '../BookMe4/Controllers/FacilityLandingPageController',
+            'FacilityResponsivenessHelper': '../BookMe4/FacilityResponsivenessHelper',
+            'ScrollableMainMenu': '../BookMe4/ScrollableMainMenu',
+            'FacilityMap': '../BookMe4/Controllers/FacilityMapController',
+            'custom-booking-online': '../BookMe4/Controllers/CustomBookingController',
+            'custom-booking-online-service': '../BookMe4/Services/CustomBookingService',
+            'custom-booking-online-models': '../BookMe4/Models/CustomBookingModels',
+            'BookMe4SearchHelper': '../BookMe4/BookMe4SearchHelper',
+            'BookMe4AttendanceHeader': '../BookMe4/BookMe4AttendanceHeader',
+            'SingleLocationOnlineShoppingCartPopup': '../BookMe4/SingleLocationOnlineShoppingCartPopup',
+            'BookMe4CartV2Controller': '../BookMe4/Controllers/BookMe4CartV2Controller',
+            'BookMe4CartService': '../BookMe4/Services/BookMe4CartService',
+            'CartItemHelper': '../BookMe4/Helpers/CartItemHelper',
+            'DateTimeHelper': '../BookMe4/Helpers/DateTimeHelper',
+            'BreadcrumbsController': '../BookMe4/Controllers/BreadcrumbsController',
+            'StartPageV2Controller': '../BookMe4/Controllers/StartPageV2Controller',
+            'ClassBookingV2Controller': '../BookMe4/Controllers/ClassBookingV2Controller',
+            'CourseBookingV2Controller': '../BookMe4/Controllers/CourseBookingV2Controller',
+            'text': '../requireModules/text',
+            'Masonry': '/Scripts/masonry.pkgd.min.js?10211046',
+            'FilterViewModelBase': '../BookMe4/Components/FilterViewModelBase',
+            'EmptyFilter': '../BookMe4/Components/EmptyFilter',
+            'MultiSelectFilter': '../BookMe4/Components/MultiSelectFilter',
+            'LocationMultiSelectFilter': '../BookMe4/Components/LocationMultiSelectFilter',
+            'FilterSelector': '../BookMe4/Components/FilterSelector',
+            'FilterManager': '../BookMe4/Components/FilterManager',
+            'FiltersCommunicationManager': '../BookMe4/Components/FiltersCommunicationManager',
+            'SearchByKeywordFilter': '../BookMe4/Components/SearchByKeywordFilter',
+            'DaysOfWeekFilter': '../BookMe4/Components/DaysOfWeekFilter',
+            'DateRangeFilter': '../BookMe4/Components/DateRangeFilter',
+            'TimeRangeFilter': '../BookMe4/Components/TimeRangeFilter',
+            'AgeFilter': '../BookMe4/Components/AgeFilter',
+            'CourseEvent': '../BookMe4/Components/CourseEvent',
+            'CourseService': '../BookMe4/Components/CourseService',
+            'CourseOccurrence': '../BookMe4/Components/CourseOccurrence',
+            'CourseDate': '../BookMe4/Components/CourseDate',
+            'CourseBookingPageSeriesViewComponent': '../BookMe4/Components/CourseBookingPageSeriesViewComponent',
+            'CourseBookingPageSessionsViewComponent': '../BookMe4/Components/CourseBookingPageSessionsViewComponent',
+            'CourseBookingPageSeriesViewVM': '../BookMe4/ViewModels/CourseBookingPageSeriesViewVM',
+            'CourseBookingPageSessionsViewVM': '../BookMe4/ViewModels/CourseBookingPageSessionsViewVM',
+            'CourseBookingPageServiceVM': '../BookMe4/ViewModels/CourseBookingPageServiceVM',
+            'CourseBookingPageEventVM': '../BookMe4/ViewModels/CourseBookingPageEventVM',
+            'BookingPageService': '../BookMe4/Services/BookingPageService',
+            'CourseBookingPageHelper': '../BookMe4/Helpers/CourseBookingPageHelper',
+            'ApplicationMenuMobile': 'ApplicationMenuMobile',
+            'ApplicationMenuItem': 'Controls/Shared/ApplicationMenuItem',
+            'ApplicationMenuItemTemplate': '/Content/HtmlTemplate/Controls/Shared/ApplicationMenuItem.html',
+            'ApplicationChildMenuTemplate': '/Content/HtmlTemplate/Controls/Shared/ApplicationChildMenu.html',
+            'ApplicationChildMenu': 'Controls/Shared/ApplicationChildMenu',
+            'FadeIn': 'Shared/Extensions/FadeIn',
+            'SlideIn': 'Shared/Extensions/SlideIn',
+            'ImageCarousel': 'Controls/ImageCarousel',
+            'ImageCarouselPopup': 'Controls/Popup/ImageCarouselPopup',
+            'PopupWrapper': 'Controls/Popup/PopupWrapper',
+            //"culture": '../kendo/cultures/kendo.culture.en-CA.min'
+        },
+        urlArgs: "v=10211046"
+    };
+</script>
+<script crossorigin="anonymous" src="/Scripts/Kendo/cultures/kendo.culture.en-CA.min.js" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/require.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/LazyLoader.js?10211046" type="text/javascript"></script>
+
+<script>
+    kendo.culture("en-CA");
+</script>
+
+<div id="email-alert" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; max-width: 600px; width: 90%; border: 2px solid red; background-color: #ffe5e5; color: #a94442; padding: 15px 20px; border-radius: 8px; font-family: Arial, sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center;">
+  <div style="display: flex; align-items: center;">
+    <div style="margin-right: 12px; font-size: 26px;">&#9888;</div>
+    <div>
+      <strong>Verify Your Account Address by November 30, 2026</strong>
+      <div id="email-alert-details" style="margin-top: 5px;">
+        Starting December 1, accounts that have not been verified will automatically be assigned to non-resident status.<br><br>
+Verify your address early to keep your resident benefits like early registration and discounted fees for recreation programs, swim lessons, camps, and drop-in activities.  <a href="https://www.markham.ca/sports-recreation-fitness/sports-recreation-programs/registration-and-general-information" style="color: #a94442; text-decoration: underline;" target="_blank"> Learn more and view which locations can verify your address.</a>
+      </div>
+    </div>
+  </div>
+  <button id="toggle-button" onclick="toggleEmailAlert()" style="align-self: center; background: none; border: none; font-size: 20px; font-weight: bold; color: #a94442; cursor: pointer; margin-left: 15px;">×</button>
+</div>
+
+<script>
+  function toggleEmailAlert() {
+    const details = document.getElementById('email-alert-details');
+    const button = document.getElementById('toggle-button');
+
+    if (details.style.display === 'none') {
+      details.style.display = 'block';
+      button.textContent = '×';
+    } else {
+      details.style.display = 'none';
+      button.textContent = '+';
+    }
+  }
+</script>
+
+    <style type="text/css">
+        .similar-row {
+            display: none;
+        }
+
+        #load-more {
+            float: right;
+            text-decoration: underline;
+        }
+
+        /* Museum Tour family-pricing picker â€” a self-contained white card so it stays
+           readable on top of the dark hero image. Caps height when many ticket bands
+           are configured so the page does not grow awkwardly at 100% zoom. */
+        .bm-family-pricing {
+            margin: 14px 0;
+            width: 100%;
+            max-width: 360px;
+            max-height: 520px;
+            max-height: min(68vh, 520px);
+            box-sizing: border-box;
+            background: #ffffff;
+            border: 1px solid #e3e6ea;
+            border-radius: 10px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+            padding: 14px 16px 12px;
+            color: #1f2933;
+            font-family: inherit;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .bm-family-pricing * {
+            box-sizing: border-box;
+        }
+
+        .bm-family-pricing-header {
+            flex: 0 0 auto;
+        }
+
+        .bm-family-pricing-title {
+            font-weight: 700;
+            font-size: 17px;
+            color: #1f2933;
+            margin: 0 0 2px;
+        }
+
+        .bm-family-from-price {
+            display: inline-block;
+            font-size: 13px;
+            font-weight: 700;
+            color: #0b7a3b;
+            background: #e8f7ee;
+            border-radius: 12px;
+            padding: 2px 10px;
+            margin: 0 0 10px;
+        }
+
+        .bm-family-pricing-rows {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 4px;
+            margin: 0 -2px 0 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Grid rows keep label/price in one column and the stepper in a fixed
+           right-hand column so every stepper lines up vertically. */
+        .bm-family-pricing-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 0;
+            border-top: 1px solid #f0f1f3;
+        }
+
+        .bm-family-pricing-row:first-child {
+            border-top: none;
+            padding-top: 2px;
+        }
+
+        .bm-family-cat {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+            min-width: 0;
+        }
+
+        .bm-family-pricing-row .bm-family-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2933;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .bm-family-price-each {
+            font-size: 12px;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .bm-family-stepper {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid #cdd2d8;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+            flex-shrink: 0;
+        }
+
+        .bm-family-stepper .bm-step-btn {
+            width: 30px;
+            height: 30px;
+            line-height: 28px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            background: #f4f6f8;
+            border: none;
+            color: #1f6feb;
+            cursor: pointer;
+            user-select: none;
+            padding: 0;
+            transition: background 0.15s ease;
+        }
+
+        .bm-family-stepper .bm-step-btn:hover:not(:disabled) {
+            background: #e4e9ef;
+        }
+
+        .bm-family-stepper .bm-step-btn:disabled {
+            color: #c4c9cf;
+            cursor: default;
+            background: #f9fafb;
+        }
+
+        .bm-family-stepper .bm-family-qty {
+            width: 40px;
+            height: 30px;
+            text-align: center;
+            border: none;
+            border-left: 1px solid #e1e4e8;
+            border-right: 1px solid #e1e4e8;
+            font-size: 15px;
+            font-weight: 600;
+            color: #1f2933;
+            background: #fff;
+            -moz-appearance: textfield;
+        }
+
+        .bm-family-stepper .bm-family-qty::-webkit-outer-spin-button,
+        .bm-family-stepper .bm-family-qty::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Summary block: constraints + live totals, visually separated from the pickers. */
+        .bm-family-summary {
+            flex: 0 0 auto;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eceef0;
+        }
+
+        .bm-family-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #4b5563;
+            margin: 2px 0;
+        }
+
+        .bm-family-info.bm-family-info-warn {
+            color: #b42318;
+            font-weight: 700;
+        }
+
+        .bm-family-total {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1f2933;
+            margin: 8px 0 2px;
+        }
+
+        .bm-family-total-price {
+            font-size: 18px;
+            font-weight: 800;
+            color: #0b7a3b;
+            margin: 4px 0 2px;
+        }
+
+        /* High-contrast alert so it is readable on any background. */
+        .bm-family-validation {
+            font-size: 13px;
+            color: #b42318;
+            font-weight: 600;
+            margin: 8px 0 0;
+        }
+
+        .bm-family-error,
+        .bm-family-validation.bm-family-validation-banner {
+            margin: 10px 0 0;
+            padding: 10px 12px;
+            border: 1px solid #f3c6c1;
+            border-left: 4px solid #d92d20;
+            background: #fef3f2;
+            color: #b42318;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        /* Guest family pricing: prevent navigation while selection/rules are invalid. */
+        #bookButton.disabled,
+        a.bm-book-button.disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+    </style>
+    <link rel="stylesheet" href="/Content/compass/css/base.css?10211046" type="text/css" />
+    <link rel="stylesheet" href="/Content/compass/css/BookMe/BookMe4-System.css?10211046" type="text/css" />
+    <link rel="stylesheet" href="/Content/compass/css/BookMe/SingleLocationOnlineShoppingCartPopup.css?10211046" type="text/css" />
+
+    <!--This style needs to be placed here for proper Google Maps rendering.-->
+    <style type="text/css">
+        #map-canvas img {
+            min-width: 0;
+            max-width: none;
+            max-height: none;
+        }
+    </style>
+
+
+        <link href="/Content/sitebase1.css?10211046" rel="stylesheet" type="text/css" />
+        <link rel="stylesheet" type="text/css" href="/Content/Planner2/PlannerAddin.css?10211046" />
+    </head>
+    <body>
+        <input type="hidden" id="siteAnchor" value="/" />
+        
+<form action="/Clients/BookMe4LandingPages/Class" id="AjaxAntiForgeryForm" method="post" style="display: none;"><input name="__RequestVerificationToken" type="hidden" value="VUTi95zxIbaMvC1FrDyXisIsz-IxGJOD_hWd64EKnQZS56M6tMstkE3mk5bGS1-AFV_ExYiO-jqAmUQ5IHUHPbVAtwEzAYuVUIYeNKkeY2gGi_4W0" /></form>
+<script type="text/javascript" crossorigin="anonymous" src="/Scripts/perfectMind/AjaxAntiForgeryPost.js?10211046"></script>
+        <div id="temp_wrapper" style="position: fixed;top:0px;left:0px;height: 100%;width:100%;background-color: white;z-index: 100000"></div>
+        <ul id="bypass-link-list">
+            <li class="bypass-link-item">
+                <a id="main-content-link" class="bypass-link" href="#main-content" tabindex="1">
+                    <div class="link-content">Skip to main content</div>
+                </a>
+            </li>
+        </ul>
+
+      
+
+<link rel="stylesheet" href="/Content/NewHeaderStyles.css?10211046" type="text/css" />
+
+
+
+<div class="bm-org-header public-header" role="heading" aria-level="1">
+    <img class="" src="//content.perfectmind.com/a99974b35d3c4078b8de347eab91319f/logo/Markham+Logo+-+CMYK.png" alt="PerfectMind Logo" aria-hidden="true" />
+    <div class="org-details">
+        <div class="bm-org-name">
+            <div>City of Markham</div>        
+        </div>
+        <div class="org-phone-number">
+            <div>(905) 477-5530</div>        
+        </div>
+    </div>
+    <div class="header-for-member">
+        <div id="topNav">
+            <div class="log-in-button-container" style="position: absolute; right: 60px; top: 0px; margin-top: 26px;">
+                 <a class="pm-button pm-login-button" title="Log in to portal" href="/Clients/MemberRegistration/MemberSignIn?returnUrl=https%3a%2f%2fcityofmarkham.perfectmind.com%2fClients%2fBookMe4LandingPages%2fClass%3fwidgetId%3d6825ea71-e5b7-4c2a-948f-9195507ad90a%26redirectedFromEmbededMode%3dFalse%26classId%3d5d766057-da9a-489e-9f43-174781a8f0c1%26occurrenceDate%3d20261030">
+                    <span>Login</span>
+                 </a>
+            </div>
+            <div id="google_translate_element" style="position: absolute; right: 185px; top: 0px;"></div>
+        </div>
+    </div>
+</div>
+
+
+<script type="text/javascript" src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-4e2a0b2a5d3a81b9" async="async"></script>
+<script crossorigin="anonymous" src="/Scripts/Kendo/kendo.PmDialog.js?10211046" type="text/javascript"></script>
+<script crossorigin="anonymous" src="/Scripts/alerts.js"></script>
+<script type="kendo-template" id="book-button">
+
+</script>
+
+<div class="bm-content-wrapper bm-course-page bm-landing-page">
+    
+    <div class="bm-course-details">
+         <section>
+             
+    <div class="bm-course-prices" tabindex="0">
+        <em class="" aria-hidden="true"></em>
+        <h3 class="fees-header">Fees</h3>
+        
+        <div class="table">
+            
+                <div class="row">
+                    <div class="column first-column" aria-label="Fee name: REC: Admission - Fitness Guest Day Pass">REC: Admission - Fitness Guest Day Pass</div>
+                    <div class="column second-column">
+                        <div class="bm-price-tag" aria-label="Fee price: Free">Free</div>
+                        
+                    </div> 
+                </div>               
+            
+        </div>
+    </div>
+   
+             <div class="bm-course-days" tabindex="0">
+                <em class=""></em>
+                  
+                      <h3>Similar Events</h3> 
+                  
+                <div class="table">
+                    <div class="row">
+                        <div class="column first-column">39 sessions </div> 
+                        <div class="column second-column"></div>
+                    </div>
+                </div>
+                <div class="k-widget k-grid" id="SimilarEventsGrid"><table><colgroup><col /><col /><col /><col /></colgroup><thead class="k-grid-header"><tr><th class="k-header" data-field="DayOfWeekShort" data-index="0" data-title="Day" id="b7146e7a-9e20-457b-883c-9924b6d1f7c4" scope="col"><span class="k-link">Day</span></th><th class="k-header" data-field="UserDate" data-index="1" data-title="Date" id="13af4d6d-93c8-4f63-9edf-df79c493a056" scope="col"><span class="k-link">Date</span></th><th class="k-header" data-field="StartAndEndTime" data-index="2" data-title="Duration" id="f86ee145-abc7-434d-b8e7-44aa0aff0be9" scope="col"><span class="k-link">Duration</span></th><th class="k-header" data-field="Facility" data-index="3" data-title="Facility" id="3908ecf2-cf62-4bb6-a98b-12ebd6480f36" scope="col"><span class="k-link">Facility</span></th></tr></thead><tbody><tr class="similar-row k-master-row"><td aria-label="Day Fri">Fri</td><td aria-label="10-30-2026">30/10/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Mon">Mon</td><td aria-label="11-02-2026">02/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Tue">Tue</td><td aria-label="11-03-2026">03/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Wed">Wed</td><td aria-label="11-04-2026">04/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Thu">Thu</td><td aria-label="11-05-2026">05/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Fri">Fri</td><td aria-label="11-06-2026">06/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Mon">Mon</td><td aria-label="11-09-2026">09/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Tue">Tue</td><td aria-label="11-10-2026">10/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Wed">Wed</td><td aria-label="11-11-2026">11/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Thu">Thu</td><td aria-label="11-12-2026">12/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Fri">Fri</td><td aria-label="11-13-2026">13/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Mon">Mon</td><td aria-label="11-16-2026">16/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Tue">Tue</td><td aria-label="11-17-2026">17/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Wed">Wed</td><td aria-label="11-18-2026">18/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Thu">Thu</td><td aria-label="11-19-2026">19/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Fri">Fri</td><td aria-label="11-20-2026">20/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Mon">Mon</td><td aria-label="11-23-2026">23/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Tue">Tue</td><td aria-label="11-24-2026">24/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Wed">Wed</td><td aria-label="11-25-2026">25/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Thu">Thu</td><td aria-label="11-26-2026">26/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Fri">Fri</td><td aria-label="11-27-2026">27/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Mon">Mon</td><td aria-label="11-30-2026">30/11/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Tue">Tue</td><td aria-label="12-01-2026">01/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Wed">Wed</td><td aria-label="12-02-2026">02/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Thu">Thu</td><td aria-label="12-03-2026">03/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Fri">Fri</td><td aria-label="12-04-2026">04/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Mon">Mon</td><td aria-label="12-07-2026">07/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Tue">Tue</td><td aria-label="12-08-2026">08/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Wed">Wed</td><td aria-label="12-09-2026">09/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Thu">Thu</td><td aria-label="12-10-2026">10/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Fri">Fri</td><td aria-label="12-11-2026">11/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Mon">Mon</td><td aria-label="12-14-2026">14/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Tue">Tue</td><td aria-label="12-15-2026">15/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Wed">Wed</td><td aria-label="12-16-2026">16/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Thu">Thu</td><td aria-label="12-17-2026">17/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Fri">Fri</td><td aria-label="12-18-2026">18/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Mon">Mon</td><td aria-label="12-21-2026">21/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-alt k-master-row"><td aria-label="Day Tue">Tue</td><td aria-label="12-22-2026">22/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr><tr class="similar-row k-master-row"><td aria-label="Day Wed">Wed</td><td aria-label="12-23-2026">23/12/2026</td><td>08:00 AM - 08:45 AM</td><td aria-label="Location Pool: Main - Lane 1-6 (Full)">Pool: Main - Lane 1-6 (Full)</td></tr></tbody></table></div><script>
+	kendo.syncReady(function(){jQuery("#SimilarEventsGrid").kendoGrid({"columns":[{"title":"Day","headerAttributes":{"data-field":"DayOfWeekShort","data-title":"Day"},"field":"DayOfWeekShort","encoded":true},{"title":"Date","headerAttributes":{"data-field":"UserDate","data-title":"Date"},"field":"UserDate","encoded":true},{"title":"Duration","headerAttributes":{"data-field":"StartAndEndTime","data-title":"Duration"},"field":"StartAndEndTime","encoded":true},{"title":"Facility","headerAttributes":{"data-field":"Facility","data-title":"Facility"},"field":"Facility","encoded":true}],"scrollable":false,"autoBind":false,"dataSource":{"type":(function(){if(kendo.data.transports['aspnetmvc-server']){return 'aspnetmvc-server';} else{throw new Error('The kendo.aspnetmvc.min.js script is not included.');}})(),"transport":{"read":{"url":""},"prefix":""},"serverPaging":true,"serverSorting":true,"serverFiltering":true,"serverGrouping":true,"serverAggregates":true,"filter":[],"schema":{"data":"Data","total":"Total","errors":"Errors","model":{"fields":{"UserDate":{"editable":false,"type":"string"},"UserTime":{"editable":false,"type":"string"},"UserEndDate":{"editable":false,"type":"string"},"UserEndTime":{"editable":false,"type":"string"},"DayOfWeek":{"editable":false,"type":"string"},"DayOfWeekShort":{"editable":false,"type":"string"},"DurationInMinutes":{"type":"number"},"AllDayEvent":{"type":"boolean"},"StartAndEndTime":{"editable":false,"type":"string"},"Location":{"type":"string"},"Facility":{"type":"string"},"LocationAndFacility":{"editable":false,"type":"string"},"Date":{"editable":false,"type":"date"}}}}}});});
+</script>
+
+                       <a href="javascript:void(0);" id="load-more" class="bm-box-title" aria-label="To load more sessions press enter button.">Load more...</a>
+                  
+             </div>           
+        </section>
+        <section class="bm-course-about">
+            <em class=""></em>
+            <div tabindex="0">
+                <h3>About this Class</h3>
+            
+            <p class="bm-course-about-descr">This is a water exercise class set to music and focused in both the shallow and deep end of the pool.
+
+Drop-in Aquafit programs are not available for registration online; please visit the facility on the day-of to attend your program. Spots may be limited. Please contact the location of your program for more details.</p>
+            </div>            
+            <div class="table" tabindex="0">
+                <div class="row bm-location-map"></div>
+
+                
+                <div class="row">
+                    <div class="column first-column">Class ID</div>
+                    <div class="column second-column">353598</div> 
+                </div>
+                 
+            </div>
+            
+            
+            <div class="bm-course-restrictions" tabindex="0">
+                <em class=""></em>
+                <h3>Restrictions</h3>
+                <div class="table">
+                    
+                    <div class="row">
+                        <div class="column first-column">Age Restriction</div>
+                        <div class="column second-column">16+</div> 
+                    </div>
+                    
+                </div>
+            </div>
+            
+        </section>
+    </div>
+    <div class="addthis_sharing_toolbox"></div>
+    <div style="display: none">
+        
+    </div>
+</div>
+
+<script src="//maps.googleapis.com/maps/api/js?key=AIzaSyDkrPPJ4JIiImcmu_bnf2Vqy3TQVkjB8Q8&amp;region=CA" type="text/javascript"></script>
+
+<script type="text/javascript">
+    function renderAdress(location, address, hasAlternativeLocation, alternativeLocation) {
+        var obj = $.extend(true, {}, { Location: location, HasAlternativeLocation: hasAlternativeLocation, AlternativeLocation: alternativeLocation }, address);
+        return kendo.Template.compile($('#booking-event-address').html())(obj);
+    }
+    function renderRestriction(label, data) {
+        return kendo.Template.compile($('#booking-event-restriction').html())({ Label: label, data: data });
+    }
+</script>
+
+<script type="kendo-template" id="booking-event-info">
+<div class="bm-course-primary-content">
+    #if (BackAction.Url != "") {#
+        <a class="bm-button bm-back-button" role="link" href=" #: BackAction.Url # ">
+        <em class="bmf-left-open" aria-hidden="true"></em><span>Back</span></a>
+    # } #
+    <div class="bm-course-primary-inner">
+        
+        <section class="event-info-column">
+            <h1 class="bm-course-primary-event-name bm-event-name-h1" title="#: EventTitle #" tabindex="0">#: EventTitle #</h1>
+                # if (BookingType == 4 ) { # 
+                    <span class="bm-facility-program-name">#: ProgramName #</span> 
+                # } #
+            # if(CalendarOvernightReservations && ProgramUseCheckInOut ) { #
+                <label>
+                    <em class="bmf-calendar" aria-label="Event range,  #: StartDate # #: StartTime # until #: EndDate # #: EndTime #"></em>
+                    <span>#: StartDate # #: StartTime # until #: EndDate # #: EndTime #</span>
+                </label>
+            # } else { # 
+            # if (BookingType != 6 || IsSingleOccurrence) { #
+            <label><em class="bmf-calendar" aria-hidden="true"></em><span aria-label="Event date - #: FormattedFullStartDate ##if (StartDate != EndDate) {# until #: FormattedFullEndDate ##}# ">#: StartDate ##if (StartDate != EndDate) {# - #: EndDate ##}#</span></label>
+            # } #
+            # if(!CalendarOvernightReservations || ProgramUseCheckInOut || StartDate == EndDate) { #
+                <label><em class="bmf-clock" aria-hidden="true"></em><span aria-label="Event time - #: EventTimeWordDescription #">#: EventTimeDescription #</span></label>
+                # } #            
+            # } #
+            # if(Spots) { #
+                <label class="spots"><em class="bmf-user" aria-hidden="true"></em><span>#: Spots #</span></label>
+            # } #
+        </section>
+    
+       <section class="bm-booking-info bm-restrictions">
+            # var displayAtLeastOneRestriction = ((!DisplaySettings || DisplaySettings.DisplayGenderRestrictions) && GenderRestrictions) ||
+                                                 ((!DisplaySettings || DisplaySettings.DisplayAgeRestrictions) && AgeRestrictions) ||
+                                                 ((!DisplaySettings || DisplaySettings.DisplayRankRestrictions) && RankRestrictions) ||
+                                                 PrerequisiteEvents;  
+            if(displayAtLeastOneRestriction) { # 
+            <div class="common-restrictions">
+                    <div class="registration-info-header">Restrictions</div>
+                 # if ((!DisplaySettings || DisplaySettings.DisplayGenderRestrictions) && GenderRestrictions) { # 
+                    <div class="registration-info-text">Gender: #: GenderRestrictions #</div>
+                 # } # 
+
+                 # if ((!DisplaySettings || DisplaySettings.DisplayAgeRestrictions) && AgeRestrictions) { #
+                    <div class="registration-info-text">Age: #= AgeRestrictions #</div>
+                 # } #
+
+                 # if ((!DisplaySettings || DisplaySettings.DisplayRankRestrictions) && RankRestrictions) { #
+                    <div class="registration-info-text">Rank: #: RankRestrictions #</div>
+                 # } #
+                # if (PrerequisiteEvents) { #
+                        <div id="displayPrerequisiteEvents" class="registration-info-text" role="button">Prerequisite Events: <span class="underlinePointer" aria-haspopup="dialog" role="button">
+                        Prerequisite Event(s)</span></div>                                        
+                # } #              
+            </div>
+            # } #
+
+        # if (IsLotterySettingsEnabled) { # 
+    
+            <div class="registration-common-info" aria-label="#: LotteryInfo #">
+                <div >#: LotteryInfo #</div>
+            </div>
+
+        # } else if (DisplayRegistrationDatesSection) { # 
+
+            <div class="registration-restrictions">
+                <div class="registration-info-header">Registration Dates</div>
+            
+                # if (MembersRegistrationDate) { # 
+                     <div class="registration-info-text" aria-label="For members #: FormattedMembersRegistrationDate #">Members: #: MembersRegistrationDate #</div>
+                # } #
+                # if (ResidentsRegistrationDate) { #
+                     <div class="registration-info-text" aria-label="For residents #: FormattedResidentsRegistrationDate #">Residents: #: ResidentsRegistrationDate #</div>
+                # } #
+                # if (PublicRegistrationStartDate) { #
+                     <div class="registration-info-text" aria-label="For public #: FormattedPublicRegistrationStartDate #">Public: #: PublicRegistrationStartDate #</div>
+                # } #  
+    
+            <div>
+
+        # } else { #
+
+            <br/>
+            <br/>
+            <br/>
+
+            <div class="registration-common-info" aria-label="#: FormattedRegistrationInfo #">
+                <div >#: RegistrationInfo #</div>
+            </div>
+        # } # 
+        <section>
+    </div>
+</div>
+</script>
+<script type="kendo-template" id="booking-appointment-info">
+<div class="bm-course-primary-content booking-appointment">
+    <img class="landing-page-bg" src="/Content/Images/landing-page-bg.jpg" alt="Header photo" />
+    <div class="booking-appointment-details">
+        #if (BackAction.Url != "") {#
+            <a class="bm-button bm-back-button" href=" #: BackAction.Url # ">
+            <em class="bmf-left-open" aria-hidden="true"></em><span>Back to Event</span></a>
+        # } #
+
+        <div class="bm-course-primary-inner">
+            <section class="event-info-column">
+                <h1 class="bm-course-primary-event-name" title="#: ProgramName #">#: ProgramName #</h1>
+            </section>
+
+            <section class="bm-booking-info">            
+                <div class="common-restrictions">
+                    #= renderRestriction('Gender', GenderRestrictions) #
+                    #= renderRestriction('Age', AgeRestrictions) #
+                    #= renderRestriction('Rank', RankRestrictions) #
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+</script>
+
+<script id="facility-landing-page-event-template" type="text/x-kendo-template">
+        # var infoAndAvailabilty = onlineOption == onlineOptions.ShowFacilityInfoAndAvailability; 
+        var cssClasses = "k-event-template facility-booking-slot";
+        if (isPlaceholder) cssClasses += " placeholder-event";
+        if (isDisabled || infoAndAvailabilty) cssClasses += " disabled-event";
+        if (isAllDay) cssClasses += " all-day";
+        #
+        <div class="#: cssClasses #">
+            <div>
+                <span title="#: timeText #">#: title #</span>
+            </div> 
+        </div>        
+</script>
+
+<script type="kendo-template" id="booking-event-location">
+    #= renderAdress(Location, Address, HasAlternativeLocation, AlternativeLocation) #
+</script>
+<script type="kendo-template" id="booking-event-restriction">
+    # if(data){ #
+        <div>#: Label #: #: data #</div>
+    # } #
+</script>
+<script type="kendo-template" id="booking-event-logo">
+<div class="bm-org-header">
+    <img src="#: OrgLogo #" alt="PerfectMind Logo" aria-hidden="true"/>
+    <div class="bm-org-name">   
+        # if(!OrgIsSingleLocation){ #           
+            <h4># if(BookingType == 4){ # #: OrgName # # } else { # #: Location # #}#</h4>
+        # } else { #
+            <h4>#: OrgLegalName #</h4>            
+        # } #
+    </div>
+    <div id="google_translate_element" style="position:absolute; right: 400px;"></div>
+</div>
+</script>
+<script type="kendo-template" id="booking-event-logo-address">
+    # if(!!Address) { #
+        <div id="bm-org-address" >
+            # if(Address.Street != ""){ #
+                    <span>#: Address.Street #,</span>
+            # } #
+                # if(Address.City != ""){ #
+                    <span>#: Address.City #,</span>
+            # } #
+            # if(Address.Country != ""){ #
+                    <span>#: Address.Country #,</span>
+            # } #
+            # if(Address.PostalCode != ""){ #
+                    <span>#: Address.PostalCode #</span>
+            # } #
+        </div>
+    # } #
+</script>
+
+<script type="kendo-template" id="booking-event-address">
+    # var addressDescription = HasAlternativeLocation ? AlternativeLocation : (AddressTag != null ? AddressTag : Location);
+        if(!HasAlternativeLocation){
+            if (!!Street) addressDescription += ", street " + Street;
+            if (!!City) addressDescription += ", city " + City;
+            if (!!Country) addressDescription += ", country " + Country;
+            if (!!PostalCode) addressDescription += ", postalCode " + PostalCode;
+        }        
+    #
+    <div class="column first-column" style='width: 75%;' aria-label="Event location">#= HasAlternativeLocation ? "Event location: " + AlternativeLocation : (AddressTag != null ? AddressTag : Location) #</div>
+    <div class="column second-column" style='vertical-align:top;'>
+            <span id="show-location-popover" class="bm-popover-link" tabindex="0" role="button" aria-haspopup="dialog">Show Map</span>
+        <div id="location-popover-container" class="bm-popover-container" role="dialog" tabindex="-1" aria-modal="false">
+            <em class="bmf-cross" aria-hidden="true" role="button"></em>
+            <div id="map-canvas" class="bm-map-canvas"></div>
+            <div class="bm-map-address">#= HasAlternativeLocation ? AlternativeLocation : (AddressTag != null ? AddressTag : Location) #</div>
+            # if(!HasAlternativeLocation){ #
+                <div>#: Street #</div>
+                <div>#: City #, #: Country #, #: PostalCode #</div>
+            # } #
+
+            <div class="bm-map-address">Get Direction From:</div>
+            <div class="bm-location-popover-dest">
+                <label for="directionDestination" class="hidden-label">Enter the direction from</label>
+                <input id="directionDestination" name="directionDestination" class="pm-text-input" type="text" />
+                <span id="calculateDirectionButton" class="bm-button" aria-label="Calculate direction" role="button" tabindex="0">Calculate</span>
+            </div>
+        </div>
+    </div>
+
+</script>
+<script type="text/template" id="facility-list-filterblock-template">
+    <a class="clear-filter-block" href="javascript:;" data-bind="click: resetCallback, visible: resetVisible, attr: { 'aria-label': 'Clear selected ' + filterBlockName + ' filter' }, event: { keydown: resetCallbackOnKeyPress }" role="button">Clear</a>
+    <ul class="padding-bottom" data-bind="foreach: itemsToShow">
+        <li data-bind="visible: isVisible">
+            <input class="pm-checkbox-blue" type="checkbox" role="checkbox"
+                data-bind="attr: { 'data-value': ID, 'id': $parent.filterBlockName + $index(), 'data-text': Name, value: ID, name: $parent.inputName },
+                event: { change: $parent.filterChangeCallback }"/>
+            <label data-bind="attr: { 'for': $parent.filterBlockName + $index() }, text: Name"></label>
+        </li>
+    </ul>
+    <a href="javascript:;" class="show-more-toggle" data-bind="click: onShowMoreClick, text: showMoreText, visible: showMoreVisible, attr: { 'aria-expanded': showAll() ? 'true' : 'false' }, event: { keydown: onShowMoreKeyPress }" role="button"></a>
+</script>
+<script type="text/x-kendo-template" id="facilityTemplate">
+    #
+    var linkText = (OnlineOption == bookMeConstants.OnlineOption.ShowFacilityInfo.Id) ? 'Information' : 'Choose';
+    #
+	<div class="facility-item" data-facilityId="#: ID #" tabindex="0">
+        <div class="desktop-details-wrapper">
+            #if (showAvailabilityIndicator){ #
+                <div class="desktop-details-availability">                
+                    <span class="img #:bookMeConstants.FacilityAvailability.Items[Availability].CssClass#">#:bookMeConstants.FacilityAvailability.Items[Availability].Description#</span>
+                </div>
+            # } #
+            #if (IsFacilityMap) { #
+                <a onclick="onChooseClick(this, #: IsFacilityMap #); return false;" data-facilityId="#: ID #" 
+                    class="pm-confirm-button desktop-details" role="link" aria-label="Choose \\#: Name \\# facility map" tabindex="0" href="javascript:void(0);">Choose</a>            
+            # } else { #
+                <a onclick='onChooseClick(this, #: IsFacilityMap #); return false;' data-facilityId="#: ID #" 
+                    class="pm-confirm-button desktop-details" role="link" aria-label="\\#: linkText + &\\#39; &\\#39; + Name \\# facility" tabindex="0" href="#: onClickActionGoToLandingPage(ID) #">#: linkText #</a>            
+            # } #
+        </div>
+        #if(!Image) { 
+            Image = "/Content/Images/ControlIcons/noimage.png";
+        } #
+        <img class="facility-image" src="#: Image #" alt="#: Name # facility photo"/>
+		<div class="facility-details">				
+			<h2>#: Name # #if (IsFacilityMap) { # (#: MapFacilitiesCount # Facilities) # } #</h2>		
+			<div id="facilityDescriptionUniqueId-#: uid #" class="facility-description truncated">#: Description #</div>
+            <a href="javascript:void(0);" class="read-more-toggle" aria-controls="facilityDescriptionUniqueId-#: uid #" aria-expanded="false" role="button">Read more</a>
+    
+            <span class="facility-location" data-bind="visible: !isSingleLocationOrganization()"><span style="font-weight: 600;">Location: </span>#: LocationName #</span>
+            # if (Amenities.length > 0) { #
+                <span class="facility-amenities"><span style="font-weight: 600;">Amenities: </span>#: joinedAmenities #</span>
+            # } #	
+        </div>
+	    <div class="tablet-details-wrapper">
+            #if (showAvailabilityIndicator){ #
+                <div class="tablet-details-availability">                
+                    <span class="img #:bookMeConstants.FacilityAvailability.Items[Availability].CssClass#">#:bookMeConstants.FacilityAvailability.Items[Availability].Description#</span>                
+                </div>
+            # } #
+            #if (IsFacilityMap) { #
+                <a onclick="onChooseClick(this, #: IsFacilityMap #); return false;" data-facilityId="#: ID #"
+                    class="pm-confirm-button tablet-details" href="javascript:void(0);" tabindex="0">Choose</a>            
+            # } else { #
+                <a onclick='onChooseClick(this, #: IsFacilityMap #); return false;' data-facilityId="#: ID #" 
+                    class="pm-confirm-button tablet-details" href="#: onClickActionGoToLandingPage(ID) #" tabindex="0">#: linkText #</a>            
+               
+            # } #
+        </div>
+        <div class="facility-detail-pills">
+            # if (FacilityType && !IsFacilityMap){ #
+                <span class="detail-pill grey">#: FacilityType #</span>
+            # } #
+            # if (OnlineOption == bookMeConstants.OnlineOption.AllowReservationWithApproval.Id) { #
+                <span class="detail-pill yellow">Requires Approval</span>
+            # } #
+            # if (ExternalLabel && ExternalLink) { #
+                <a class="detail-pill purple" tabindex="0" target="_blank" href="#: ExternalLink #">#: ExternalLabel #</span>
+            # } #
+        </div>
+	</div>
+</script>
+<script type="text/x-kendo-template" id="successfulAlertTemplate">        
+    <div class="popup-first-user-login-alert-message"> 
+        <i class="fa fa-times fa-lg" aria-hidden="true"></i>                   
+        <p>#: message #</p>
+    </div>            
+</script>
+<script type="text/x-kendo-template" id="notificationTemplate">        
+    <div class="notification-message" role="dialog">
+            #: message #
+    </div>            
+</script>
+<script type="text/x-kendo-template" id="facilityMapPinToolTipTemplate">        
+    <div class="facility-texts-block">
+        <div class="facility-head">
+            <img class="facility-image" src="#: Image #" alt="#: Name # facility photo" aria-hidden="true"/>
+            <div class="name-wrapper">
+                <div class="facility-name ellipsis">#: Name #</div>
+                # if (!!FacilityType) { #
+                    <div class="facility-type ellipsis">#: FacilityType #</div>
+                # } #
+                # if (!!Address) { #
+                    <div>#: Address.Street + ',' + Address.City + ',' + Address.PostalCode #</div>
+                # } #
+            </div>
+        </div>
+        # if (!!Description) { #
+            <div class="description-info">
+                <div class="facility-description truncated">#: Description #</div>
+                <a href="javascript:;" class="read-more-toggle" aria-expanded="false" role="button">Read more</a>
+            </div>
+        # } #
+        # if (Amenities.length > 0) { #
+            <span class="facility-amenities">Amenities: <span style="font-weight: 600;">#: joinedAmenities #</span></span>
+        # } #
+        # for (var i in OptionalDetails) { #
+            <div style="display: block" class="detail-wrapper">#: i #: <span style="font-weight: 600;">#: OptionalDetails[i] #</div></span>
+        # } #
+        # if (!!CheckInTime) { #
+            <div style="display: block" class="detail-wrapper">Check in:  <span style="font-weight: 600;">#: CheckInTime #</div></span>
+        # } #
+        # if (!!CheckOutTime) { #    
+            <div style="display: block" class="detail-wrapper">Check out:  <span style="font-weight: 600;">#: CheckOutTime #</div></span>
+        # } #
+        # if (!!PriceDetails) { # 
+            <div style="display: block" class="detail-wrapper">#: PriceDetails #</div>
+        # } #
+        <div>
+            #if (showAvailabilityIndicator){ #
+                <div class="availability">                
+                    <span class="img #:bookMeConstants.FacilityAvailability.Items[Availability].CssClass#">#:bookMeConstants.FacilityAvailability.Items[Availability].Description#</span>                
+                </div>
+            # } #
+            <a class="pm-confirm-button" onclick='onChooseClick(this); return false;' data-facilityId="#: FacilityId #"
+                href="#: onClickActionGoToLandingPage(FacilityId) #" role="link" tabindex="0">Choose</a>
+        </div>
+    </div>              
+</script>
+<script id="notQualifiedMemberNotificationTemplate" type="text/x-kendo-template">
+    <div class="not-qualified-member-notification notification-element" role="alert">
+        <span class="exclamation-mark-icon"></span>
+        <div class="text">
+            <h3>#: title #</h3>
+            <p>#: message #</p>
+        </div>
+    </div>
+</script>
+<script id="selectAttendeeNotificationTemplate" type="text/x-kendo-template">
+    <div class="select-attendee-notification notification-element" role="alert">
+        <span class="exclamation-mark-icon"></span>
+        <h3>#: message #</h3>
+    </div>
+</script>
+
+
+    <script type="text/javascript">
+        function decodeEncodedValue(value) {
+            var decodedValue = $('<div></div>').html(value).text();
+            return decodedValue;
+        }
+
+        $(window).on("holdsTrackerPopupVisibilityChanged", function () {
+            $('.bm-booking-info.bm-restrictions').toggleClass("bm-holds-tracker");
+        });
+
+        function showMore(skip) {
+            var items = $('#SimilarEventsGrid').find('tbody tr').not(".k-no-data").slice(skip, skip + 10);
+
+            itemsLoaded += items.length;
+
+            if (allItemsCount - itemsLoaded == 0) {
+                $('#load-more').hide();
+            }
+
+            $(items).each(function (index, item) { $(item).removeClass('similar-row'); });
+            $(items).each(function (index, item) { $(item).removeClass('similar-row'); });
+        }
+
+        var eventInfo = $.extend(true, {}, {
+            BackAction: {
+                Url: '/Clients/BookMe4BookingPages/Classes?widgetId=6825ea71-e5b7-4c2a-948f-9195507ad90a\u0026calendarId=d4d891dd-9e45-474b-97c4-e43c8f8fe3b8\u0026singleCalendarWidget=False',
+                Name: 'Back'
+            }
+        }, {"ParentEventId":null,"LotterySettings":null,"IsLotterySettingsEnabled":false,"IsLotteryRegistrationEnabled":false,"IsAdminSession":false,"FakeEventId":null,"LotteryInfo":"","RecordName":"487642","CalendarId":"d4d891dd-9e45-474b-97c4-e43c8f8fe3b8","CalendarOvernightReservations":false,"ServiceDurationId":null,"WidgetId":"6825ea71-e5b7-4c2a-948f-9195507ad90a","RegFormId":null,"ImageUrl":"","ProgramId":"d0b36159-42a1-408a-85b1-ad581baa4a4e","ProgramDescription":"This is a water exercise class set to music and focused in both the shallow and deep end of the pool.\r\n\r\nDrop-in Aquafit programs are not available for registration online; please visit the facility on the day-of to attend your program. Spots may be limited. Please contact the location of your program for more details.","ProgramName":"Drop-In Aquafit: Shallow/Deep","ProgramImageUrl":"//content.perfectmind.com/a99974b35d3c4078b8de347eab91319f/images/218/f047825016ff4781b87562ef9db022aa.png","ProgramUseCheckInOut":false,"EventTimeWordDescription":"8 o\u0027clock AM to 8 o\u0027clock AM and 45 minutes","SessionName":"","StartDate":"30/10/2026","StartDateWithOffset":"2026-10-30T08:00:00-04:00","PublicRegistrationStartDate":null,"FormattedPublicRegistrationStartDate":null,"PublicRegistrationStartDateValue":null,"PublicRegistrationStartDateWithOffset":null,"ResidentsRegistrationDate":null,"FormattedResidentsRegistrationDate":null,"ResidentsRegistrationDateWithOffset":null,"ResidentsRegistrationDateValue":null,"MembersRegistrationDate":null,"FormattedMembersRegistrationDate":null,"MembersRegistrationDateWithOffset":null,"MembersRegistrationDateValue":null,"PublicRegistrationEndDateValue":null,"ResidentsRegistrationEndDateValue":null,"MembersRegistrationEndDateValue":null,"AllowLateBooking":false,"FormattedFullStartDate":"October 30th, 2026","StartTime":"08:00 AM","StartDay":"Friday","EndDate":"30/10/2026","EndDateWithOffset":"2026-10-30T08:45:00-04:00","FormattedFullEndDate":"October 30th, 2026","EndTime":"08:45 AM","AppointmentStartDateTimeTicks":0,"ActualLocation":"Angus Glen Community Centre","Latitude":null,"Longitude":null,"LocationId":"57cc2739-7141-4f95-8007-1ce0e58200e8","AgeRule":1,"AgeRuleSpecificDate":"2021-07-09T00:00:00","Restrictions":"Gender - Co-ed; Age - 16+; Rank -  Prerequisite Events - False","DisplayableRestrictions":"16+","SpotsLeft":40,"RegistrationInfo":"Please Call for More Information","FormattedRegistrationInfo":"Please Call for More Information","IsRegistrationClosed":false,"IsFutureRegistration":false,"AnyRegistrationDateInFuture":false,"RegistrationEndDateInEventTimeZone":"2026-10-30T08:00:00","RegistrationEndDateUtc":"2026-10-30T12:00:00Z","FormattedRegistrationEndDate":null,"IsWaitListAvailable":false,"IsWaitListFull":true,"IsWaitListHasSpots":false,"RestrictWaitlist":false,"IsFull":false,"Token":null,"Color":15890481,"FacilityId":"3cc138c7-054c-4f4e-8b0a-47fd8f12bf1f","FacilityContractId":null,"FacilityOnlineOption":2,"FacilitySupervisorEmails":"rentalpermits@markham.ca","Assistants":[],"MaximumCapacity":40,"WaitListCapacity":0,"WaitListSpotsLeft":0,"SuppressWaitlistForGuestCheckout":false,"CanNotBook":false,"Prices":[{"Id":"92174bec-5308-45a5-92af-920f3d986b03","ObjectId":"6a293c5d-5ea0-d5b9-2ae2-f91bc2069f1b","ItemId":"5d766057-da9a-489e-9f43-174781a8f0c1","Amount":0.00,"PriceTypeId":"d17a7fed-5f21-44d5-8fd8-8d47f728ee4d","Name":"REC: Admission - Fitness Guest Day Pass","IsSelected":false,"IsOriginalPrice":false,"CanSelect":false,"ShowOnline":null,"DisplayAmount":"No fee","DisplayProratedAmount":"No fee","DisplayAmountOrAsFree":"Free","WasProrated":false,"ProratedAmount":0.0,"AdjustedStartDate":null,"TaxableStateDesc":"Plus Tax","AnyTaxesAssigned":true,"IncludeTaxFlagEnabled":false,"WasCalculatedUsingMultipleSlotsLogic":false,"ItemOccurrences":null,"MakeUpClass":false,"DropinFee":false}],"Extras":[],"PaymentPlan":null,"HasExtras":false,"HasRequiredExtras":false,"HasRestrictions":true,"OwnerId":"0766d48a-a53d-4414-b055-d69fba575c1d","SupervisorId":null,"RecurrenceId":"673ce43c-d352-4854-a853-ca9e20346568","PaddingBefore":null,"PaddingAfter":null,"OnlineRegistration":false,"UseServiceFee":false,"AdminProrateInfo":{"AutoApplyProrate":false,"ProratedInfoText":null,"NotProratedInfoText":null,"ProrateAfterSessionsNumber":1,"AllowProrateLateRegistation":false,"ProrateSessionsBasedOnDurationEnabled":false,"TodayDate":"0001-01-01T00:00:00+00:00"},"OnlineProrateInfo":{"ProrateAfterSessionsNumber":1,"AllowProrateLateRegistation":false,"ProrateSessionsBasedOnDurationEnabled":false,"TodayDate":"2026-10-30T00:00:00-04:00"},"ProrateCoursePermission":false,"IgnoreEventCapacity":false,"EnforceRegistrationsDatesRestrictions":false,"BookOverCapacity":false,"AddAnywayPrerequisites":false,"EnforceNQFeeConflict":false,"EventGroupId":null,"EventDates":"Oct 30, 2026","CapacityCalculationStrategy":{},"AnyHoldsForCurrentUser":false,"ValidateMembershipOnFee":false,"AllowUndoProratedFeeMembership":false,"ProrateSessionsBasedOnDuration":false,"BookingTypeInfo":{"BookingType":2,"IsSchoolProgram":false,"IsCustomBookingOnline":false,"IsCustomBookingAdmin":false,"IsCustomBooking":false},"DisplayRegistrationDatesSection":false,"IsSingleOccurrence":false,"HasValidFee":true,"EventTitle":"Drop-In Aquafit: Shallow/Deep","CreatedDate":"2026-07-20T14:36:12.68","EventId":"5d766057-da9a-489e-9f43-174781a8f0c1","CourseId":"353598","CourseIdTrimmed":"353598","EventName":"Drop-In Aquafit: Shallow/Deep","Details":"This is a water exercise class set to music and focused in both the shallow and deep end of the pool.\r\n\r\nDrop-in Aquafit programs are not available for registration online; please visit the facility on the day-of to attend your program. Spots may be limited. Please contact the location of your program for more details.","Spots":"40 spots left","OccurrenceDate":"20261030","BookButtonText":"More Info","BookButtonDescription":"More Info Drop-In Aquafit: Shallow/Deep","ClosedButtonName":"Registration Closed","Instructor":{"Id":null,"FullName":"","Type":"","Description":"","Image":"","Email":""},"Facility":"Pool: Main - Lane 1-6 (Full)","DisplaySettings":{"DisplayInstructorsName":false,"DisplayPrices":true,"DisplaySpotsLeft":true,"DisplayRegistrationDate":true,"DisplayNumberOfSessions":true,"DisplayCourseId":true,"DisplayAgeRestrictions":true,"DisplayRankRestrictions":false,"DisplayGenderRestrictions":false,"ButtonName":"Register","UseBookMe5UiWidgetVersion":false,"WidgetUIVersion":0},"PriceRange":null,"AllDayEvent":false,"AnyTimeBrokenOccurrences":false,"StartDateValue":"2026-10-30T08:00:00","FormattedStartDate":"Fri, Oct 30th, 2026","FormattedStartTime":"08:00 AM","EndDateValue":"2026-10-30T08:45:00","FirstOccurrenceEndDate":null,"FormattedEndDate":"Oct 30th","FormattedEndTime":"08:45 AM","FirstOccurrenceFormattedEndTime":null,"EventTimeDescription":"08:00 am - 08:45 am","AlternativeLocation":null,"HasAlternativeLocation":false,"OccurrenceDescription":"","Occurrences":[{"StartDateWithOffset":"2026-10-30T08:00:00-04:00","StartDate":"2026-10-30T00:00:00","EndDateWithOffset":"2026-10-30T08:45:00-04:00","EndDate":"2026-10-30T00:00:00","OccurrenceOrderNumber":0,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-02T08:00:00-05:00","StartDate":"2026-11-02T00:00:00","EndDateWithOffset":"2026-11-02T08:45:00-05:00","EndDate":"2026-11-02T00:00:00","OccurrenceOrderNumber":1,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-03T08:00:00-05:00","StartDate":"2026-11-03T00:00:00","EndDateWithOffset":"2026-11-03T08:45:00-05:00","EndDate":"2026-11-03T00:00:00","OccurrenceOrderNumber":2,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-04T08:00:00-05:00","StartDate":"2026-11-04T00:00:00","EndDateWithOffset":"2026-11-04T08:45:00-05:00","EndDate":"2026-11-04T00:00:00","OccurrenceOrderNumber":3,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-05T08:00:00-05:00","StartDate":"2026-11-05T00:00:00","EndDateWithOffset":"2026-11-05T08:45:00-05:00","EndDate":"2026-11-05T00:00:00","OccurrenceOrderNumber":4,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-06T08:00:00-05:00","StartDate":"2026-11-06T00:00:00","EndDateWithOffset":"2026-11-06T08:45:00-05:00","EndDate":"2026-11-06T00:00:00","OccurrenceOrderNumber":5,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-09T08:00:00-05:00","StartDate":"2026-11-09T00:00:00","EndDateWithOffset":"2026-11-09T08:45:00-05:00","EndDate":"2026-11-09T00:00:00","OccurrenceOrderNumber":6,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-10T08:00:00-05:00","StartDate":"2026-11-10T00:00:00","EndDateWithOffset":"2026-11-10T08:45:00-05:00","EndDate":"2026-11-10T00:00:00","OccurrenceOrderNumber":7,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-11T08:00:00-05:00","StartDate":"2026-11-11T00:00:00","EndDateWithOffset":"2026-11-11T08:45:00-05:00","EndDate":"2026-11-11T00:00:00","OccurrenceOrderNumber":8,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-12T08:00:00-05:00","StartDate":"2026-11-12T00:00:00","EndDateWithOffset":"2026-11-12T08:45:00-05:00","EndDate":"2026-11-12T00:00:00","OccurrenceOrderNumber":9,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-13T08:00:00-05:00","StartDate":"2026-11-13T00:00:00","EndDateWithOffset":"2026-11-13T08:45:00-05:00","EndDate":"2026-11-13T00:00:00","OccurrenceOrderNumber":10,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-16T08:00:00-05:00","StartDate":"2026-11-16T00:00:00","EndDateWithOffset":"2026-11-16T08:45:00-05:00","EndDate":"2026-11-16T00:00:00","OccurrenceOrderNumber":11,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-17T08:00:00-05:00","StartDate":"2026-11-17T00:00:00","EndDateWithOffset":"2026-11-17T08:45:00-05:00","EndDate":"2026-11-17T00:00:00","OccurrenceOrderNumber":12,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-18T08:00:00-05:00","StartDate":"2026-11-18T00:00:00","EndDateWithOffset":"2026-11-18T08:45:00-05:00","EndDate":"2026-11-18T00:00:00","OccurrenceOrderNumber":13,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-19T08:00:00-05:00","StartDate":"2026-11-19T00:00:00","EndDateWithOffset":"2026-11-19T08:45:00-05:00","EndDate":"2026-11-19T00:00:00","OccurrenceOrderNumber":14,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-20T08:00:00-05:00","StartDate":"2026-11-20T00:00:00","EndDateWithOffset":"2026-11-20T08:45:00-05:00","EndDate":"2026-11-20T00:00:00","OccurrenceOrderNumber":15,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-23T08:00:00-05:00","StartDate":"2026-11-23T00:00:00","EndDateWithOffset":"2026-11-23T08:45:00-05:00","EndDate":"2026-11-23T00:00:00","OccurrenceOrderNumber":16,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-24T08:00:00-05:00","StartDate":"2026-11-24T00:00:00","EndDateWithOffset":"2026-11-24T08:45:00-05:00","EndDate":"2026-11-24T00:00:00","OccurrenceOrderNumber":17,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-25T08:00:00-05:00","StartDate":"2026-11-25T00:00:00","EndDateWithOffset":"2026-11-25T08:45:00-05:00","EndDate":"2026-11-25T00:00:00","OccurrenceOrderNumber":18,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-26T08:00:00-05:00","StartDate":"2026-11-26T00:00:00","EndDateWithOffset":"2026-11-26T08:45:00-05:00","EndDate":"2026-11-26T00:00:00","OccurrenceOrderNumber":19,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-27T08:00:00-05:00","StartDate":"2026-11-27T00:00:00","EndDateWithOffset":"2026-11-27T08:45:00-05:00","EndDate":"2026-11-27T00:00:00","OccurrenceOrderNumber":20,"DurationInMinutes":45},{"StartDateWithOffset":"2026-11-30T08:00:00-05:00","StartDate":"2026-11-30T00:00:00","EndDateWithOffset":"2026-11-30T08:45:00-05:00","EndDate":"2026-11-30T00:00:00","OccurrenceOrderNumber":21,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-01T08:00:00-05:00","StartDate":"2026-12-01T00:00:00","EndDateWithOffset":"2026-12-01T08:45:00-05:00","EndDate":"2026-12-01T00:00:00","OccurrenceOrderNumber":22,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-02T08:00:00-05:00","StartDate":"2026-12-02T00:00:00","EndDateWithOffset":"2026-12-02T08:45:00-05:00","EndDate":"2026-12-02T00:00:00","OccurrenceOrderNumber":23,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-03T08:00:00-05:00","StartDate":"2026-12-03T00:00:00","EndDateWithOffset":"2026-12-03T08:45:00-05:00","EndDate":"2026-12-03T00:00:00","OccurrenceOrderNumber":24,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-04T08:00:00-05:00","StartDate":"2026-12-04T00:00:00","EndDateWithOffset":"2026-12-04T08:45:00-05:00","EndDate":"2026-12-04T00:00:00","OccurrenceOrderNumber":25,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-07T08:00:00-05:00","StartDate":"2026-12-07T00:00:00","EndDateWithOffset":"2026-12-07T08:45:00-05:00","EndDate":"2026-12-07T00:00:00","OccurrenceOrderNumber":26,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-08T08:00:00-05:00","StartDate":"2026-12-08T00:00:00","EndDateWithOffset":"2026-12-08T08:45:00-05:00","EndDate":"2026-12-08T00:00:00","OccurrenceOrderNumber":27,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-09T08:00:00-05:00","StartDate":"2026-12-09T00:00:00","EndDateWithOffset":"2026-12-09T08:45:00-05:00","EndDate":"2026-12-09T00:00:00","OccurrenceOrderNumber":28,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-10T08:00:00-05:00","StartDate":"2026-12-10T00:00:00","EndDateWithOffset":"2026-12-10T08:45:00-05:00","EndDate":"2026-12-10T00:00:00","OccurrenceOrderNumber":29,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-11T08:00:00-05:00","StartDate":"2026-12-11T00:00:00","EndDateWithOffset":"2026-12-11T08:45:00-05:00","EndDate":"2026-12-11T00:00:00","OccurrenceOrderNumber":30,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-14T08:00:00-05:00","StartDate":"2026-12-14T00:00:00","EndDateWithOffset":"2026-12-14T08:45:00-05:00","EndDate":"2026-12-14T00:00:00","OccurrenceOrderNumber":31,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-15T08:00:00-05:00","StartDate":"2026-12-15T00:00:00","EndDateWithOffset":"2026-12-15T08:45:00-05:00","EndDate":"2026-12-15T00:00:00","OccurrenceOrderNumber":32,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-16T08:00:00-05:00","StartDate":"2026-12-16T00:00:00","EndDateWithOffset":"2026-12-16T08:45:00-05:00","EndDate":"2026-12-16T00:00:00","OccurrenceOrderNumber":33,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-17T08:00:00-05:00","StartDate":"2026-12-17T00:00:00","EndDateWithOffset":"2026-12-17T08:45:00-05:00","EndDate":"2026-12-17T00:00:00","OccurrenceOrderNumber":34,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-18T08:00:00-05:00","StartDate":"2026-12-18T00:00:00","EndDateWithOffset":"2026-12-18T08:45:00-05:00","EndDate":"2026-12-18T00:00:00","OccurrenceOrderNumber":35,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-21T08:00:00-05:00","StartDate":"2026-12-21T00:00:00","EndDateWithOffset":"2026-12-21T08:45:00-05:00","EndDate":"2026-12-21T00:00:00","OccurrenceOrderNumber":36,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-22T08:00:00-05:00","StartDate":"2026-12-22T00:00:00","EndDateWithOffset":"2026-12-22T08:45:00-05:00","EndDate":"2026-12-22T00:00:00","OccurrenceOrderNumber":37,"DurationInMinutes":45},{"StartDateWithOffset":"2026-12-23T08:00:00-05:00","StartDate":"2026-12-23T00:00:00","EndDateWithOffset":"2026-12-23T08:45:00-05:00","EndDate":"2026-12-23T00:00:00","OccurrenceOrderNumber":38,"DurationInMinutes":45}],"NumberOfSessions":39,"PrerequisiteEvents":false,"DisplayablePrerequisiteEventsRestrictionsForCourses":"","DisplayableRestrictionsForCourses":"Age: 16+","MinAge":16,"MinAgeMonths":null,"MaxAge":null,"MaxAgeMonths":null,"NoAgeRestriction":false,"AgeRestrictions":"16+","GenderRestrictions":"Co-ed","RankRestrictions":"","FromRank":null,"ToRank":null,"StartingRankId":null,"EndingRankId":null,"DurationInMinutes":45,"FeeFrequency":null,"OrgLogo":"//content.perfectmind.com/a99974b35d3c4078b8de347eab91319f/logo/Markham+Logo+-+CMYK.png","OrgIsSingleLocation":false,"OrgLegalName":"City of Markham","OrgName":"City of Markham","Address":{"AddressTag":"Angus Glen Community Centre","Street":"3990 Major Mackenzie Drive","City":"Markham","PostalCode":"L6C 1P8","CountryId":0,"Country":"","StateProvinceId":0,"AnyFieldMissing":true,"Latitude":43.895354,"Longitude":-79.336539,"Id":"2edca341-54cb-4da4-ae92-6603435570d4"},"Location":"Angus Glen Community Centre","BookingType":2});
+
+        var itemsLoaded = 0;
+        var allItemsCount = 39;
+        var isAdmin = false;
+
+        // Museum Tour family pricing: null unless guest checkout + family pricing are enabled for this service.
+        var familyPricingConfig = null;
+        var guestCheckoutBaseUrl = '';
+        // Server-side family-pricing validation message (shown when the guest is redirected back to this page).
+        var guestCheckoutValidationError = '';
+        // True when Setup category mins cannot fit event spots / MaxFamilySize â€” steppers are not usable.
+        var familyPricingBookingBlocked = false;
+
+        function formatFamilyMoney(amount) {
+            var n = parseFloat(amount);
+            if (isNaN(n)) { return ''; }
+            return '$' + n.toFixed(2);
+        }
+
+        function getFamilyQuantities() {
+            var quantities = {};
+            $('.bm-family-pricing input.bm-family-qty').each(function () {
+                var category = $(this).data('category');
+                var value = parseInt($(this).val(), 10);
+                if (category) {
+                    quantities[category] = (!isNaN(value) && value > 0) ? value : 0;
+                }
+            });
+            return quantities;
+        }
+
+        function getFamilyTotalSelected() {
+            var q = getFamilyQuantities();
+            var total = 0;
+            for (var key in q) {
+                if (Object.prototype.hasOwnProperty.call(q, key)) {
+                    total += q[key] || 0;
+                }
+            }
+            return total;
+        }
+
+        function formatGuestMinAdultsMessage(min) {
+            var adultMinAge = familyPricingConfig.AdultMinAge || 18;
+            return 'This registration requires at least ' + min + ' ' + (min === 1 ? 'adult' : 'adults') + ', ' + adultMinAge + ' or older.';
+        }
+
+        function formatGuestMinSeniorsMessage(min) {
+            var seniorMinAge = familyPricingConfig.SeniorMinAge || 65;
+            return 'This registration requires at least ' + min + ' ' + (min === 1 ? 'senior' : 'seniors') + ', ' + seniorMinAge + ' or older.';
+        }
+
+        function formatGuestMinChildrenMessage(min) {
+            var adultMinAge = familyPricingConfig.AdultMinAge || 18;
+            return 'This registration requires at least ' + min + ' ' + (min === 1 ? 'child' : 'children') + ' under ' + adultMinAge + '.';
+        }
+
+        /// Sum of configured category minimums for visible adult/senior/child pickers.
+        function getConfiguredCategoryMinTotal() {
+            var total = 0;
+            if (!familyPricingConfig || !familyPricingConfig.Categories) {
+                return 0;
+            }
+            $.each(familyPricingConfig.Categories, function (index, category) {
+                if (!category || !category.Show) {
+                    return;
+                }
+                total += category.Min || 0;
+            });
+            return total;
+        }
+
+        /// Setup mins that already exceed spots or MaxFamilySize â€” booking cannot succeed.
+        function getImpossibleFamilyBookingMessage() {
+            if (!familyPricingConfig || !familyPricingConfig.Enabled) {
+                return null;
+            }
+            var minTotal = getConfiguredCategoryMinTotal();
+            if (minTotal <= 0) {
+                return null;
+            }
+            if (familyPricingConfig.SpotsLeft && minTotal > familyPricingConfig.SpotsLeft) {
+                return 'This event can\'t be booked online because the minimum group size (' + minTotal +
+                    ' people) is larger than the spots available (' + familyPricingConfig.SpotsLeft +
+                    '). Please contact the Admin.';
+            }
+            if (familyPricingConfig.MaxFamilySize && minTotal > familyPricingConfig.MaxFamilySize) {
+                return 'This event can\'t be booked online because the minimum group size (' + minTotal +
+                    ' people) is larger than the maximum allowed per booking (' + familyPricingConfig.MaxFamilySize +
+                    '). Please contact the Admin.';
+            }
+            return null;
+        }
+
+        function collectGuestFamilyPricingValidationMessages() {
+            var messages = [];
+            if (!familyPricingConfig || !familyPricingConfig.Enabled) {
+                return messages;
+            }
+
+            var impossibleMessage = getImpossibleFamilyBookingMessage();
+            if (impossibleMessage) {
+                messages.push(impossibleMessage);
+                return messages;
+            }
+
+            var q = getFamilyQuantities();
+            var total = getFamilyTotalSelected();
+
+            if (total <= 0) {
+                messages.push('Please select at least one person.');
+                return messages;
+            }
+
+            if (familyPricingConfig.Categories) {
+                $.each(familyPricingConfig.Categories, function (index, category) {
+                    if (!category.Show) return;
+                    var min = category.Min || 0;
+                    if (min <= 0 || category.EnforceMin === false) return;
+                    var count = q[category.Key] || 0;
+                    if (count >= min) return;
+                    if (category.MinMessage) {
+                        messages.push(category.MinMessage);
+                    } else if (category.Key === 'adults') {
+                        messages.push(formatGuestMinAdultsMessage(min));
+                    } else if (category.Key === 'seniors') {
+                        messages.push(formatGuestMinSeniorsMessage(min));
+                    } else if (category.Key === 'children') {
+                        messages.push(formatGuestMinChildrenMessage(min));
+                    } else {
+                        messages.push('This registration requires at least ' + min + ' ' + (category.Label || 'tickets') + '.');
+                    }
+                });
+            }
+
+            // Match server IsWithinLimits: MaxFamilySize and spots remaining.
+            if (familyPricingConfig.MaxFamilySize && total > familyPricingConfig.MaxFamilySize) {
+                messages.push('Maximum ' + familyPricingConfig.MaxFamilySize + ' people per booking.');
+            }
+            if (familyPricingConfig.SpotsLeft && total > familyPricingConfig.SpotsLeft) {
+                var spots = familyPricingConfig.SpotsLeft;
+                messages.push('Only ' + spots + (spots === 1 ? ' spot is' : ' spots are') + ' left for this event.');
+            }
+
+            return messages;
+        }
+
+        function showGuestFamilyPricingValidation(messages) {
+            var validation = $('.bm-family-validation');
+            if (!messages || !messages.length) {
+                validation.text('').hide();
+                return;
+            }
+            if (messages.length === 1) {
+                validation.text(messages[0]).show();
+                return;
+            }
+            var items = messages.map(function (m) {
+                return '<li>' + $('<div/>').text(m).html() + '</li>';
+            }).join('');
+            validation.html('<div><strong>Please fix the following:</strong></div><ul>' + items + '</ul>').show();
+        }
+
+        function buildGuestCheckoutHref() {
+            var url = guestCheckoutBaseUrl;
+            if (!url || !familyPricingConfig) {
+                return url;
+            }
+            var quantities = getFamilyQuantities();
+            var parts = [];
+            if (familyPricingConfig.Categories) {
+                $.each(familyPricingConfig.Categories, function (index, category) {
+                    if (!category || !category.Show || !category.Key) {
+                        return;
+                    }
+                    parts.push(encodeURIComponent(category.Key) + '=' + (quantities[category.Key] || 0));
+                });
+            }
+            if (!parts.length) {
+                return url;
+            }
+            var separator = url.indexOf('?') >= 0 ? '&' : '?';
+            return url + separator + parts.join('&');
+        }
+
+        // Largest total the guest may select: the smaller of MaxFamilySize and remaining event spots (when known).
+        function getFamilyMaxTotal() {
+            var limits = [];
+            if (familyPricingConfig.MaxFamilySize) {
+                limits.push(familyPricingConfig.MaxFamilySize);
+            }
+            if (familyPricingConfig.SpotsLeft) {
+                limits.push(familyPricingConfig.SpotsLeft);
+            }
+            return limits.length ? Math.min.apply(null, limits) : null;
+        }
+
+        function refreshFamilyPricingState() {
+            if (familyPricingBookingBlocked) {
+                $('#bookButton').addClass('disabled').attr('aria-disabled', 'true');
+                return;
+            }
+
+            var total = getFamilyTotalSelected();
+            var maxTotal = getFamilyMaxTotal();
+
+            // "Your group" reflects only the current selection â€” never event capacity.
+            $('.bm-family-total').text('\uD83D\uDC6A Your group: ' + total + (total === 1 ? ' person selected' : ' people selected'));
+
+            // "You can add N more" uses the effective cap (min of MaxFamilySize and SpotsLeft).
+            var remainingEl = $('.bm-family-remaining');
+            if (maxTotal !== null) {
+                if (total < maxTotal) {
+                    var canAdd = maxTotal - total;
+                    remainingEl
+                        .text('You can add ' + canAdd + (canAdd === 1 ? ' more person' : ' more people'))
+                        .removeClass('bm-family-info-warn');
+                } else {
+                    remainingEl
+                        .text('Maximum allowed for this booking reached')
+                        .addClass('bm-family-info-warn');
+                }
+            } else {
+                remainingEl.text('').removeClass('bm-family-info-warn');
+            }
+
+            // 3.2 Live total price = sum(quantity * unit price) across categories that have a configured price.
+            var totalPrice = 0;
+            var hasAnyPrice = false;
+            $('.bm-family-pricing-row input.bm-family-qty').each(function () {
+                var priceEach = parseFloat($(this).data('price-each'));
+                if (!isNaN(priceEach)) {
+                    hasAnyPrice = true;
+                    totalPrice += (parseInt($(this).val(), 10) || 0) * priceEach;
+                }
+            });
+            $('.bm-family-total-price').text(hasAnyPrice ? ('Total: ' + formatFamilyMoney(totalPrice)) : '');
+
+            // Disable each "+" when the row hit its own max or the overall family/capacity cap is reached.
+            $('.bm-family-pricing-row').each(function () {
+                var input = $(this).find('input.bm-family-qty');
+                var value = parseInt(input.val(), 10) || 0;
+                var rowMax = input.data('max');
+                var minus = $(this).find('.bm-step-minus');
+                var plus = $(this).find('.bm-step-plus');
+
+                minus.prop('disabled', value <= (parseInt(input.attr('min'), 10) || 0));
+
+                var atRowMax = (rowMax !== undefined && rowMax !== null && rowMax !== '') ? value >= rowMax : false;
+                var atTotalMax = maxTotal !== null ? total >= maxTotal : false;
+                plus.prop('disabled', atRowMax || atTotalMax);
+            });
+
+            // Show category minimums / capacity once the guest has started selecting; hide when valid.
+            var validationMessages = total > 0 ? collectGuestFamilyPricingValidationMessages() : [];
+            showGuestFamilyPricingValidation(validationMessages);
+            var hasValidationErrors = total <= 0 || validationMessages.length > 0;
+
+            // Book button is meaningless with nobody selected, or while a rule is violated.
+            $('#bookButton').toggleClass('disabled', hasValidationErrors).attr('aria-disabled', hasValidationErrors ? 'true' : 'false');
+        }
+
+        function stepFamilyQuantity(input, delta) {
+            var min = parseInt(input.attr('min'), 10) || 0;
+            var rowMaxRaw = input.data('max');
+            var rowMax = (rowMaxRaw !== undefined && rowMaxRaw !== null && rowMaxRaw !== '') ? parseInt(rowMaxRaw, 10) : null;
+            var current = parseInt(input.val(), 10) || 0;
+            var next = current + delta;
+
+            if (next < min) next = min;
+            if (rowMax !== null && next > rowMax) next = rowMax;
+
+            // Respect the overall family-size / capacity cap when incrementing.
+            if (delta > 0) {
+                var maxTotal = getFamilyMaxTotal();
+                if (maxTotal !== null && (getFamilyTotalSelected() - current + next) > maxTotal) {
+                    next = current;
+                }
+            }
+
+            input.val(next);
+            refreshFamilyPricingState();
+        }
+
+        // Builds an icon + text info line (icon is decorative; text carries the meaning).
+        function buildFamilyInfoLine(extraClass, icon, text) {
+            var line = $('<div class="bm-family-info"></div>').addClass(extraClass);
+            line.append($('<span aria-hidden="true"></span>').text(icon));
+            line.append($('<span></span>').text(text));
+            return line;
+        }
+
+        function renderFamilyPricingPickers() {
+            if (!familyPricingConfig || !familyPricingConfig.Enabled) {
+                return;
+            }
+            var bookButton = $('#bookButton');
+            if (!bookButton.length || $('.bm-family-pricing').length) {
+                return;
+            }
+
+            var container = $('<div class="bm-family-pricing"></div>');
+            var header = $('<div class="bm-family-pricing-header"></div>');
+            header.append($('<div class="bm-family-pricing-title"></div>').text('Who\u2019s coming?'));
+
+            // 5.1 "From $X" minimum-price hint (SOW) when a minimum price is available.
+            if (familyPricingConfig.FromPrice !== null && typeof familyPricingConfig.FromPrice !== 'undefined') {
+                header.append($('<div class="bm-family-from-price"></div>')
+                    .text('From ' + formatFamilyMoney(familyPricingConfig.FromPrice)));
+            }
+            container.append(header);
+
+            // 2.2 Surface a server-side validation message when the guest was redirected back here.
+            if (guestCheckoutValidationError) {
+                container.append($('<div class="bm-family-error" role="alert"></div>').text(guestCheckoutValidationError));
+            }
+
+            var impossibleMessage = getImpossibleFamilyBookingMessage();
+            if (impossibleMessage) {
+                // Invalid Setup (category mins > spots / MaxFamilySize): do not trap the guest on locked steppers.
+                familyPricingBookingBlocked = true;
+                container.append($('<div class="bm-family-error" role="alert"></div>').text(impossibleMessage));
+
+                var blockedSummary = $('<div class="bm-family-summary"></div>');
+                if (familyPricingConfig.SpotsLeft) {
+                    blockedSummary.append(buildFamilyInfoLine('bm-family-event-capacity', '\uD83D\uDC65',
+                        'Event: ' + familyPricingConfig.SpotsLeft +
+                            (familyPricingConfig.SpotsLeft === 1 ? ' spot available' : ' spots available')));
+                }
+                if (familyPricingConfig.MaxFamilySize) {
+                    blockedSummary.append(buildFamilyInfoLine('bm-family-booking-limit', '\u2139\uFE0F',
+                        'Maximum ' + familyPricingConfig.MaxFamilySize + ' people per booking'));
+                }
+                var minTotal = getConfiguredCategoryMinTotal();
+                blockedSummary.append(buildFamilyInfoLine('bm-family-info-warn', '\u26A0\uFE0F',
+                    'Configured minimum group size: ' + minTotal + (minTotal === 1 ? ' person' : ' people')));
+                container.append(blockedSummary);
+
+                container.insertBefore(bookButton);
+                bookButton.addClass('disabled').attr('aria-disabled', 'true');
+                return;
+            }
+
+            var rowsHost = $('<div class="bm-family-pricing-rows"></div>');
+            $.each(familyPricingConfig.Categories, function (index, category) {
+                if (!category.Show) {
+                    return;
+                }
+                var inputId = 'bm-family-qty-' + category.Key;
+                var row = $('<div class="bm-family-pricing-row"></div>');
+
+                // Left column: category label with its per-unit price stacked underneath.
+                var catInfo = $('<span class="bm-family-cat"></span>');
+                catInfo.append($('<span class="bm-family-label"></span>').text(category.Label));
+                if (category.PriceEach !== null && typeof category.PriceEach !== 'undefined') {
+                    catInfo.append($('<span class="bm-family-price-each"></span>')
+                        .text(formatFamilyMoney(category.PriceEach) + ' each'));
+                }
+                row.append(catInfo);
+
+                var stepper = $('<span class="bm-family-stepper"></span>');
+                var minus = $('<button type="button" class="bm-step-btn bm-step-minus" aria-label="Decrease ' + category.Label + '">\u2212</button>');
+                var input = $('<input type="number" class="bm-family-qty" readonly="readonly" />')
+                    .attr('id', inputId)
+                    .attr('data-category', category.Key)
+                    .attr('min', category.Min || 0)
+                    .attr('aria-label', category.Label + ' quantity')
+                    .val(category.Min || 0);
+                if (category.Max !== null && typeof category.Max !== 'undefined') {
+                    input.attr('data-max', category.Max);
+                }
+                if (category.PriceEach !== null && typeof category.PriceEach !== 'undefined') {
+                    input.attr('data-price-each', category.PriceEach);
+                }
+                var plus = $('<button type="button" class="bm-step-btn bm-step-plus" aria-label="Increase ' + category.Label + '">+</button>');
+
+                minus.on('click', function () { stepFamilyQuantity(input, -1); });
+                plus.on('click', function () { stepFamilyQuantity(input, 1); });
+
+                stepper.append(minus).append(input).append(plus);
+                row.append(stepper);
+
+                rowsHost.append(row);
+            });
+            container.append(rowsHost);
+
+            // Summary block: constraints + live totals, visually separated from the pickers.
+            var summary = $('<div class="bm-family-summary"></div>');
+
+            // Constraint A â€” EVENT CAPACITY (from the event). Static; no subtraction based on selection.
+            if (familyPricingConfig.SpotsLeft) {
+                summary.append(buildFamilyInfoLine('bm-family-event-capacity', '\uD83D\uDC65',
+                    'Event: ' + familyPricingConfig.SpotsLeft +
+                        (familyPricingConfig.SpotsLeft === 1 ? ' spot available' : ' spots available')));
+            }
+
+            // Constraint B â€” BOOKING LIMIT (from Setup MaxFamilySize). Static; independent of capacity.
+            if (familyPricingConfig.MaxFamilySize) {
+                summary.append(buildFamilyInfoLine('bm-family-booking-limit', '\u2139\uFE0F',
+                    'Maximum ' + familyPricingConfig.MaxFamilySize + ' people per booking'));
+            }
+
+            // Dynamic selection summary + "you can add N more" (effective cap = min of MaxFamilySize and spots).
+            summary.append($('<div class="bm-family-total"></div>'));
+            summary.append($('<div class="bm-family-info bm-family-remaining"></div>'));
+            // 3.2 Live price total for the current selection.
+            summary.append($('<div class="bm-family-total-price"></div>'));
+            // 2.2 Inline rule feedback (e.g. configured min adults / party size), styled as a high-contrast banner.
+            summary.append($('<div class="bm-family-validation bm-family-validation-banner" role="alert" style="display:none;"></div>'));
+
+            container.append(summary);
+
+            container.insertBefore(bookButton);
+            refreshFamilyPricingState();
+        }
+        AlertManager.setUrl("/Clients/Alert/GetAlerts");
+        $(document).ready(function () {
+            var singleLocationOnlineShoppingCartPopup;
+            require(["SingleLocationOnlineShoppingCartPopup"], function (preventCartWithMultipleCartItemLocations) {
+                singleLocationOnlineShoppingCartPopup = preventCartWithMultipleCartItemLocations;
+            });
+            require(["BookMe4AttendanceHeader", "BookMe4SearchHelper", "PlannerUtility"], function (header, BookMe4SearchHelper, plannerUtility) {                
+                header.header();
+                var eventId = "5d766057-da9a-489e-9f43-174781a8f0c1";
+                $('#prerequisiteEvents,#prerequisiteServices').click(function () {
+                    var prerequisiteEventsUrl = '/Clients/BookMe4/PrerequisiteEventsView';
+                    plannerUtility.showPrerequisiteEvents(eventId, prerequisiteEventsUrl);
+                });
+             
+                var orgLogoAddressTemplate = kendo.template($('#booking-event-logo-address').html());              
+
+                var btnTemplate = kendo.template($('#book-button').html());
+                var commonRestrictionsSection = $('.common-restrictions');
+                var mainBookingRestrictionsSection = $('.bm-booking-info.bm-restrictions');
+                if (commonRestrictionsSection.length > 0) {
+                    commonRestrictionsSection.before(btnTemplate(eventInfo));
+                } else {
+                    mainBookingRestrictionsSection.prepend(btnTemplate(eventInfo));
+                }
+
+                renderFamilyPricingPickers();
+
+                var showRegistrationRestrictionPopUp = function (registrationEndDateLabel) {
+                    var message = $('<span role="alert"></span>').text("The Registration ended on " + registrationEndDateLabel);
+                    $("#registrationRestrictionAlertPopup").append(message);
+                    $("#registrationRestrictionAlertPopup").show();
+                };
+
+                $('.bm-booking-info .bm-book-button').click(function () {
+                    var registrationEndDate = kendo.timezone.convert(kendo.parseDate(eventInfo.RegistrationEndDateUtc, "s"), 0, new Date().getTimezoneOffset());
+
+                    // After clicking on Book button we should check if registration end date is not reached.
+                    // Otherwise we should disable "Book" button and then generate alert with appropriate message.
+                    if (registrationEndDate < new Date()) {
+                        showRegistrationRestrictionPopUp(eventInfo.FormattedRegistrationEndDate);
+                        $('.bm-book-button').attr("disabled", "disabled").addClass("disabled");
+                        $('.bm-booking-info .reg-info').text('Registration is closed. ');
+
+                        // Returning here false we prevent normal click action for this link - redirect to next page (either Login or Attendee page).
+                        return false;
+                    }
+                });
+
+                $("#registrationRestrictionAlertPopup").click(function () {
+                    $("#registrationRestrictionAlertPopup").hide();
+                });
+
+                if (eventInfo.IsRegistrationClosed && !eventInfo.IsLotteryRegistrationEnabled) {
+                    $('.bm-book-button').attr("disabled", "disabled").addClass("disabled");
+                }
+
+                var locationTemplate = kendo.template($('#booking-event-location').html());
+                $('.bm-course-about .bm-location-map').append(locationTemplate(eventInfo));
+
+                // Initialize google maps actually
+                var coordinates = {
+                    lat: eventInfo.HasAlternativeLocation ? eventInfo.Latitude : eventInfo.Address.Latitude,
+                    lng: eventInfo.HasAlternativeLocation ? eventInfo.Longitude : eventInfo.Address.Longitude
+                };
+                var addressForMap = eventInfo.HasAlternativeLocation ? eventInfo.AlternativeLocation : $(orgLogoAddressTemplate(eventInfo)).text();
+                initializeMapping(addressForMap, coordinates);
+
+                $('#load-more').click(function () {
+                    showMore(itemsLoaded);
+                });
+
+                $('#load-more').keydown(function (event) {
+                    if (event.keyCode == 13) {
+                        $('#load-more').click();
+                        $('#SimilarEventsGrid tbody').focus();
+                    }
+                });
+
+                showMore(itemsLoaded);
+
+                var searchQuery = decodeEncodedValue('');
+
+                if (searchQuery) {
+                    var searchHelper = new BookMe4SearchHelper({
+                        url: '/Clients/BookMe4Search',
+                        widgetId: '6825ea71-e5b7-4c2a-948f-9195507ad90a'
+                    });
+
+                    var backButton = $('.bm-course-primary-content .bm-back-button');
+                    backButton.removeAttr('href');
+                    backButton.click(function () {
+                        searchHelper.postSearchForm(searchQuery, false, true);
+                    });
+                }
+            });
+
+            if (typeof addthis !== 'undefined' && addthis && addthis.addEventListener && typeof addthis.addEventListener === 'function'){
+                addthis.addEventListener('addthis.ready', function(){
+                    setTimeout(function(){
+                        $('#at4-thankyou #at4-palogo').replaceWith('<div id="at4-palogo">' + $('target').html() +'</div>');
+                        $('#service-icons-0').appendTo($('head'));
+                        $('#at-share-dock a svg').removeAttr('title').removeAttr('alt');
+                    }, 1000);                    
+                });
+            }
+
+            $('body').on('click', '#bookButton', function (event) {
+                // Family pricing: rewrite the guest-checkout link with the picked Adults/Seniors/Children counts.
+                if (familyPricingConfig && guestCheckoutBaseUrl) {
+                    if (familyPricingBookingBlocked || $(this).hasClass('disabled')) {
+                        event.preventDefault();
+                        var blockedMessages = collectGuestFamilyPricingValidationMessages();
+                        if (blockedMessages.length > 0) {
+                            showGuestFamilyPricingValidation(blockedMessages);
+                        }
+                        return false;
+                    }
+
+                    var validationMessages = collectGuestFamilyPricingValidationMessages();
+                    if (validationMessages.length > 0 || getFamilyTotalSelected() <= 0) {
+                        showGuestFamilyPricingValidation(
+                            validationMessages.length > 0
+                                ? validationMessages
+                                : ['Please select at least one person.']);
+                        event.preventDefault();
+                        return false;
+                    }
+                    $(this).attr('href', buildGuestCheckoutHref());
+                }
+
+                var locationName = '';
+                var showPopup = 'False';
+                var cartUrl = '';
+                if (showPopup === 'True') {
+                    event.preventDefault();
+                    singleLocationOnlineShoppingCartPopup.showPopup(locationName, cartUrl);
+                }
+                
+            });
+        });
+    </script>
+    <script type="text/javascript" crossorigin="anonymous" src="/Scripts/BookMe4/google.maps.js?10211046"></script>
+
+        <script>
+            $(document).ready(function () {
+                $("#temp_wrapper").fadeOut();
+            });
+        </script>
+        
+        <script crossorigin="anonymous" src="/Scripts/perfectMind/Planner/PlannerAttendanceHeader.js?10211046"></script>
+        <script crossorigin="anonymous" src="/Scripts/BookMe4/BookMe4AttendanceHeader.js?10211046"></script>
+        <script crossorigin="anonymous" src="/Scripts/jQueryPlugin/lightbox.js?10211046"></script>
+        <div id="tempInfoForScreenReaders" class="hidden-label" aria-live="polite"></div>
+    <script src="/Scripts/jQueryPlugin/jQueryHoverIntentFull.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jQueryValidateFull.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jQueryTimePickerFull.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jQueryThreeDotsFull.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jQueryContextMenuFull.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jQueryFloatingBoxFull.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jQueryPlaceholderFull.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jquery.elastic.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jQueryBbqFull.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jQueryPmDialog.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jQueryPmEnhancedSelect.js?10211046"></script>
+<script src="/Scripts/Kendo/kendo.pmPreferenceRankingGrid.js?10211046"></script>
+<script src="/Scripts/jQueryPlugin/jQueryDateTimeAutocompleteFull.js?10211046"></script>
+<script src="/Scripts/swfobject/swfObjectFull.js?10211046"></script>
+<script src="/Scripts/perfectMind/Controls/FlyOutTooltip.js?10211046"></script>
+<script src="/Scripts/perfectMind/core.js?10211046"></script>
+<script src="/Scripts/perfectMind/common.js?10211046"></script>
+<script src="/Scripts/customControl/ajaxLink.js?10211046"></script>
+
+    </body>
+</html>

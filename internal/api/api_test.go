@@ -19,6 +19,8 @@ type fakeStore struct {
 	cats     []store.CategoryCount
 	centres  []store.CentreCount
 	acts     []store.ActivityCount
+	runs     []schedule.Run
+	gotLimit int
 	status   schedule.Status
 	err      error
 	got      schedule.Filter
@@ -31,7 +33,11 @@ func (f *fakeStore) Sessions(_ context.Context, fl schedule.Filter) ([]schedule.
 func (f *fakeStore) Categories(context.Context) ([]store.CategoryCount, error) { return f.cats, f.err }
 func (f *fakeStore) Centres(context.Context) ([]store.CentreCount, error)      { return f.centres, f.err }
 func (f *fakeStore) Activities(context.Context) ([]store.ActivityCount, error) { return f.acts, f.err }
-func (f *fakeStore) LoadStatus(context.Context) (schedule.Status, error)       { return f.status, f.err }
+func (f *fakeStore) Runs(_ context.Context, limit int) ([]schedule.Run, error) {
+	f.gotLimit = limit
+	return f.runs, f.err
+}
+func (f *fakeStore) LoadStatus(context.Context) (schedule.Status, error) { return f.status, f.err }
 
 var toronto, _ = time.LoadLocation("America/Toronto")
 var fixedNow = time.Date(2026, 10, 30, 15, 30, 0, 0, toronto)
@@ -256,5 +262,45 @@ func TestActivityFilterAndList(t *testing.T) {
 	}
 	if w := get(newH(&fakeStore{}, Options{}), "/api/activities"); strings.TrimSpace(w.Body.String()) != "[]" {
 		t.Fatal("empty list should be [], got", w.Body.String())
+	}
+}
+
+func TestRunsAndStatusPage(t *testing.T) {
+	fs := &fakeStore{runs: []schedule.Run{{OK: true, Total: 7, DurationMS: 1500}}}
+	h := newH(fs, Options{Refresh: 3 * time.Hour})
+	w := get(h, "/api/runs?limit=5")
+	if w.Code != 200 || fs.gotLimit != 5 || !strings.Contains(w.Body.String(), `"total":7`) {
+		t.Fatal(w.Code, fs.gotLimit, w.Body.String())
+	}
+	if w := get(h, "/api/runs?limit=9999"); w.Code != 200 || fs.gotLimit != 300 {
+		t.Fatal("limit should clamp to 300, got", fs.gotLimit)
+	}
+	if w := get(h, "/api/runs?limit=x"); w.Code != 400 {
+		t.Fatal(w.Code)
+	}
+	if w := get(newH(&fakeStore{}, Options{}), "/api/runs"); strings.TrimSpace(w.Body.String()) != "[]" {
+		t.Fatal("empty runs should be [], got", w.Body.String())
+	}
+	if w := get(h, "/status"); w.Code != 200 || !strings.Contains(w.Body.String(), "<title>Scrape status") {
+		t.Fatal("status page", w.Code)
+	}
+	if w := get(newH(&fakeStore{}, Options{Token: "k"}), "/status"); w.Code != 401 {
+		t.Fatal("status page should need the token", w.Code)
+	}
+}
+
+func TestStatusIncludesIntervalAndRegistrationCoverage(t *testing.T) {
+	at := fixedNow
+	fs := &fakeStore{sessions: []schedule.Session{
+		{Registration: &schedule.Registration{Residents: &at}},
+		{Registration: &schedule.Registration{}},
+		{},
+	}}
+	h := newH(fs, Options{Refresh: 3 * time.Hour})
+	body := get(h, "/api/status").Body.String()
+	for _, want := range []string{`"refresh_interval_seconds":10800`, `"registration":{"online":1,"in_person":1,"unknown":1}`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("missing %s in %s", want, body)
+		}
 	}
 }

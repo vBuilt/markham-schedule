@@ -1,6 +1,9 @@
 package schedule
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestFilterActivities(t *testing.T) {
 	lane := Session{Name: "Drop-In Lane Swim", Categories: []string{"Swimming"}, Centre: "Cornell Community Centre"}
@@ -25,5 +28,38 @@ func TestFilterActivities(t *testing.T) {
 				t.Errorf("%s: session %d (%s) = %v, want %v", c.name, i, s.Name, got, c.want[i])
 			}
 		}
+	}
+}
+
+func TestRegRuleDeriveAndApply(t *testing.T) {
+	loc, _ := time.LoadLocation("America/Toronto")
+	at := func(d, h, m int) time.Time { return time.Date(2026, 11, d, h, m, 0, 0, loc) }
+	start := at(1, 19, 15)
+	res, mem := at(0, 22, 15), at(1, 16, 15) // Oct 31 22:15 (21h before), Nov 1 16:15 (3h before)
+	season := time.Date(2026, 9, 6, 6, 30, 0, 0, loc)
+
+	r := DeriveRegRule(&res, &mem, &mem, start)
+	if r.Residents.Before == nil || *r.Residents.Before != 21*3600 || r.Members.Before == nil || *r.Members.Before != 3*3600 {
+		t.Fatalf("relative rule %+v", r)
+	}
+	// The same course a week later: dates move with the session.
+	got := r.Apply(start.AddDate(0, 0, 7))
+	if !got.Residents.Equal(res.AddDate(0, 0, 7)) || !got.Public.Equal(mem.AddDate(0, 0, 7)) || !got.Online() {
+		t.Fatalf("applied %+v", got)
+	}
+
+	// A season-wide date (more than 14 days before) stays fixed.
+	abs := DeriveRegRule(&season, nil, nil, start)
+	if abs.Residents.At == nil || abs.Residents.Before != nil {
+		t.Fatalf("absolute rule %+v", abs)
+	}
+	if a := abs.Apply(start.AddDate(0, 0, 7)); !a.Residents.Equal(season) || a.Members != nil {
+		t.Fatalf("applied absolute %+v", a)
+	}
+
+	// No dates at all: in person only.
+	none := DeriveRegRule(nil, nil, nil, start).Apply(start)
+	if none == nil || none.Online() {
+		t.Fatalf("no-registration rule should apply as non-nil, offline: %+v", none)
 	}
 }

@@ -19,6 +19,7 @@ type Source interface {
 	Calendars(ctx context.Context) ([]perfectmind.Calendar, error)
 	Classes(ctx context.Context, cal perfectmind.Calendar, from, to time.Time) ([]perfectmind.RawClass, error)
 	AbsURL(path string) string
+	Registration(ctx context.Context, eventID, occurrenceDate string, loc *time.Location) (residents, members, public *time.Time, err error)
 }
 
 var _ Source = (*perfectmind.Client)(nil)
@@ -30,8 +31,14 @@ type Config struct {
 	// RetryInterval is the delay before the next attempt after a failed
 	// refresh, capped at Interval. Zero means 15m.
 	RetryInterval time.Duration
-	Loc           *time.Location
-	Now           func() time.Time
+	// RegLookups caps registration-page fetches per refresh. Zero means 600;
+	// negative disables lookups.
+	RegLookups int
+	// RegMaxAge is how long a course's registration rule is trusted before it
+	// is fetched again. Zero means 14 days.
+	RegMaxAge time.Duration
+	Loc       *time.Location
+	Now       func() time.Time
 }
 
 type Scraper struct {
@@ -51,6 +58,12 @@ func New(src Source, st *store.Store, cfg Config, log *slog.Logger) *Scraper {
 	if cfg.RetryInterval <= 0 {
 		cfg.RetryInterval = 15 * time.Minute
 	}
+	if cfg.RegLookups == 0 {
+		cfg.RegLookups = 600
+	}
+	if cfg.RegMaxAge <= 0 {
+		cfg.RegMaxAge = 14 * 24 * time.Hour
+	}
 	if cfg.Loc == nil {
 		loc, err := time.LoadLocation("America/Toronto")
 		if err != nil {
@@ -64,12 +77,31 @@ func New(src Source, st *store.Store, cfg Config, log *slog.Logger) *Scraper {
 	return &Scraper{src: src, st: st, cfg: cfg, log: log}
 }
 
+// Refresh runs one scrape and records it in the run history for the status page.
 func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 	if !s.mu.TryLock() {
 		return schedule.Status{}, ErrBusy
 	}
 	defer s.mu.Unlock()
 
+	run := &schedule.Run{Started: s.cfg.Now()}
+	status, err := s.refresh(ctx, run)
+	run.Finished = s.cfg.Now()
+	run.DurationMS = run.Finished.Sub(run.Started).Milliseconds()
+	run.OK = err == nil
+	if err != nil {
+		run.Error = err.Error()
+	}
+	run.Total = status.Total
+	if ctx.Err() == nil {
+		if aerr := s.st.AddRun(ctx, *run); aerr != nil {
+			s.log.Error("record run", "err", aerr)
+		}
+	}
+	return status, err
+}
+
+func (s *Scraper) refresh(ctx context.Context, run *schedule.Run) (schedule.Status, error) {
 	now := s.cfg.Now()
 	prev, err := s.st.LoadStatus(ctx)
 	if err != nil {
@@ -123,6 +155,7 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 	type fetched struct {
 		idx      int // into results
 		sessions []schedule.Session
+		eventIDs []string // parallel to sessions
 		latest   time.Time
 	}
 	results := make([]schedule.CategoryResult, 0, len(cals))
@@ -132,7 +165,9 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 	for _, cal := range cals {
 		names = append(names, cal.Name)
 		res := schedule.CategoryResult{Name: cal.Name}
+		fetchStart := s.cfg.Now()
 		raws, err := s.src.Classes(ctx, cal, from, to)
+		res.DurationMS = s.cfg.Now().Sub(fetchStart).Milliseconds()
 		if err != nil {
 			if ctx.Err() != nil {
 				return status, ctx.Err()
@@ -144,6 +179,7 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 		}
 		bookingURL := s.src.AbsURL(cal.BookingLink)
 		sessions := make([]schedule.Session, 0, len(raws))
+		eventIDs := make([]string, 0, len(raws))
 		var latest time.Time
 		for _, r := range raws {
 			sess, err := perfectmind.ToSession(r, cal.Name, bookingURL, s.cfg.Loc, now)
@@ -155,6 +191,7 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 				latest = sess.Start
 			}
 			sessions = append(sessions, sess)
+			eventIDs = append(eventIDs, r.EventId)
 		}
 		if len(raws) > 0 && len(sessions) == 0 {
 			res.Error = fmt.Sprintf("all %d rows failed to convert", len(raws))
@@ -162,11 +199,12 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 			results = append(results, res)
 			continue
 		}
-		toWrite = append(toWrite, fetched{idx: len(results), sessions: sessions, latest: latest})
+		toWrite = append(toWrite, fetched{idx: len(results), sessions: sessions, eventIDs: eventIDs, latest: latest})
 		totalFetched += len(sessions)
 		results = append(results, res)
 	}
 
+	run.Categories = results // later writes update these entries in place
 	if len(toWrite) > 0 && totalFetched == 0 && before > 0 {
 		// Every category that answered came back empty while upcoming sessions
 		// are stored: far more likely a bad response than the whole city emptying.
@@ -184,6 +222,14 @@ func (s *Scraper) Refresh(ctx context.Context) (schedule.Status, error) {
 			s.log.Error("save status", "err", serr)
 		}
 		return status, errors.New(status.Error)
+	}
+
+	batches := make([]regBatch, len(toWrite))
+	for i := range toWrite {
+		batches[i] = regBatch{sessions: toWrite[i].sessions, eventIDs: toWrite[i].eventIDs}
+	}
+	if err := s.addRegistration(ctx, now, batches, &run.Registration); err != nil {
+		return status, err
 	}
 
 	okCount := 0
