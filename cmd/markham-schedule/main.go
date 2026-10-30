@@ -82,6 +82,7 @@ func logLevel(s string) slog.Level {
 
 func run(cfg config.Config, once bool) int {
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel(cfg.LogLevel)}))
+	slog.SetDefault(log)
 	loc, err := time.LoadLocation("America/Toronto")
 	if err != nil {
 		log.Error("load timezone", "err", err)
@@ -117,7 +118,10 @@ func run(cfg config.Config, once bool) int {
 		return printSummary(status, err)
 	}
 
-	go sc.Run(ctx)
+	scDone := make(chan struct{})
+	go func() { defer close(scDone); sc.Run(ctx) }()
+	// Join the scraper before the deferred st.Close on every return path.
+	defer func() { stop(); <-scDone }()
 
 	h := api.New(st, api.Options{
 		Token: cfg.APIToken, CalName: "Markham Drop-In", Version: version,
