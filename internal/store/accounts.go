@@ -71,6 +71,13 @@ func (s *Store) ConfirmUser(ctx context.Context, userID int64) error {
 	return err
 }
 
+// TouchUser restarts the unconfirmed-account purge clock: PurgeAuth measures
+// an unconfirmed user's age from created_unix, which this sets to now.
+func (s *Store) TouchUser(ctx context.Context, userID int64, now time.Time) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE users SET created_unix=? WHERE id=?`, now.Unix(), userID)
+	return err
+}
+
 // DeleteUser removes the user along with their sessions and tokens.
 func (s *Store) DeleteUser(ctx context.Context, userID int64) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {

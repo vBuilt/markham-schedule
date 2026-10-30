@@ -112,3 +112,20 @@ func TestLoadAccountsConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadTurnstileKeysArePaired(t *testing.T) {
+	for _, m := range []map[string]string{
+		{"TURNSTILE_SITE_KEY": "site"},
+		{"TURNSTILE_SECRET": "sec"},
+	} {
+		_, err := Load(env(m))
+		if err == nil || !strings.Contains(err.Error(), "TURNSTILE_SITE_KEY") ||
+			!strings.Contains(err.Error(), "TURNSTILE_SECRET") {
+			t.Errorf("%v: err = %v, want error naming both variables", m, err)
+		}
+	}
+	c, err := Load(env(nil))
+	if err != nil || c.TurnstileSiteKey != "" || c.TurnstileSecret != "" {
+		t.Errorf("neither set = %+v, %v; want both empty", c, err)
+	}
+}

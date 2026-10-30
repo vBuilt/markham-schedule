@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -587,5 +589,145 @@ func TestChangePasswordRateLimited(t *testing.T) {
 	}
 	if err := h.svc.ChangePassword(ctx, u, pw2, pw, keep); err != nil {
 		t.Errorf("5th attempt after reset = %v", err)
+	}
+}
+
+// countArgon counts argon2 key derivations until the test ends.
+func countArgon(t *testing.T) *atomic.Int64 {
+	t.Helper()
+	var n atomic.Int64
+	orig := argonKey
+	argonKey = func(pw, salt []byte, tm, m uint32, p uint8, l uint32) []byte {
+		n.Add(1)
+		return orig(pw, salt, tm, m, p, l)
+	}
+	t.Cleanup(func() { argonKey = orig })
+	return &n
+}
+
+func TestResetChecksTokenBeforeHashing(t *testing.T) {
+	h := newHarness(t, "")
+	n := countArgon(t)
+	if _, err := h.svc.Reset(ctx, "not-a-real-token", pw); !errors.Is(err, ErrBadToken) {
+		t.Fatalf("bad token = %v, want ErrBadToken", err)
+	}
+	if got := n.Load(); got != 0 {
+		t.Errorf("bad-token reset ran argon2 %d times, want 0", got)
+	}
+	// A weak password still doesn't burn a good token.
+	h.confirmedUser(t, "a@example.com", pw)
+	if err := h.svc.Forgot(ctx, "a@example.com", "bot", "1.1.1.1"); err != nil {
+		t.Fatal(err)
+	}
+	tok := h.lastToken(t, "/reset")
+	if _, err := h.svc.Reset(ctx, tok, "short"); !errors.Is(err, ErrWeakPassword) {
+		t.Fatalf("weak = %v", err)
+	}
+	if _, err := h.svc.Reset(ctx, tok, pw2); err != nil {
+		t.Fatalf("token burnt by weak password: %v", err)
+	}
+}
+
+func TestResetConfirmsUser(t *testing.T) {
+	h := newHarness(t, "")
+	if err := h.svc.SignUp(ctx, "a@example.com", pw, "bot", "1.1.1.1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.svc.Forgot(ctx, "a@example.com", "bot", "1.1.1.1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.svc.Reset(ctx, h.lastToken(t, "/reset"), pw2); err != nil {
+		t.Fatal(err)
+	}
+	u, err := h.st.UserByEmail(ctx, "a@example.com")
+	if err != nil || !u.Confirmed {
+		t.Fatalf("after reset = %+v, %v; want confirmed", u, err)
+	}
+}
+
+func TestSignInLimitedPerIP(t *testing.T) {
+	h := newHarness(t, "")
+	h.confirmedUser(t, "a@example.com", pw)
+	const ip = "2.2.2.2"             // h.signIn's address
+	h.signIn(t, "a@example.com", pw) // success must not reset the per-IP count
+	for i := 0; i < 29; i++ {
+		email := fmt.Sprintf("x%d@example.com", i)
+		if _, _, err := h.svc.SignIn(ctx, email, pw, ip); !errors.Is(err, ErrBadCredentials) {
+			t.Fatalf("attempt %d = %v", i+2, err)
+		}
+	}
+	n := countArgon(t)
+	if _, _, err := h.svc.SignIn(ctx, "a@example.com", pw, ip); !errors.Is(err, ErrRateLimited) {
+		t.Errorf("31st attempt from IP = %v, want ErrRateLimited", err)
+	}
+	if got := n.Load(); got != 0 {
+		t.Errorf("refused sign-in ran argon2 %d times", got)
+	}
+	if _, _, err := h.svc.SignIn(ctx, "a@example.com", pw, "8.8.8.8"); err != nil {
+		t.Errorf("other IP = %v", err)
+	}
+	h.clock.Advance(16 * time.Minute)
+	if _, _, err := h.svc.SignIn(ctx, "a@example.com", pw, ip); err != nil {
+		t.Errorf("after 16 min = %v", err)
+	}
+}
+
+func TestRepeatSignUpAndResendRestartPurgeClock(t *testing.T) {
+	day := 24 * time.Hour
+	for _, tc := range []struct {
+		name  string
+		again func(h *harness)
+	}{
+		{"resend", func(h *harness) {
+			u, _ := h.st.UserByEmail(ctx, "a@example.com")
+			if err := h.svc.ResendConfirm(ctx, u, "1.1.1.1"); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"repeat sign-up", func(h *harness) {
+			if err := h.svc.SignUp(ctx, "a@example.com", pw2, "bot", "1.1.1.1"); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		h := newHarness(t, "")
+		if err := h.svc.SignUp(ctx, "a@example.com", pw, "bot", "1.1.1.1"); err != nil {
+			t.Fatal(err)
+		}
+		h.clock.Advance(6 * day)
+		tc.again(h)
+		h.clock.Advance(2 * day)
+		if err := h.svc.Cleanup(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := h.st.UserByEmail(ctx, "a@example.com"); err != nil {
+			t.Errorf("%s at day 6: purged at day 8: %v", tc.name, err)
+		}
+		h.clock.Advance(6 * day)
+		if err := h.svc.Cleanup(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := h.st.UserByEmail(ctx, "a@example.com"); !errors.Is(err, store.ErrNotFound) {
+			t.Errorf("%s: kept 8 days after last email: %v", tc.name, err)
+		}
+	}
+}
+
+func TestServicePrune(t *testing.T) {
+	h := newHarness(t, "")
+	h.confirmedUser(t, "a@example.com", pw)
+	h.svc.SignIn(ctx, "a@example.com", pw2, "2.2.2.2")
+	h.svc.ChangePassword(ctx, store.User{ID: 1}, pw2, pw, "")
+	h.clock.Advance(2 * time.Hour)
+	h.svc.Prune()
+	for name, l := range map[string]*Limiter{
+		"email": h.svc.emailLimit, "ip": h.svc.ipLimit, "signIn": h.svc.signInLimit,
+		"signInIP": h.svc.signInIPLimit, "current": h.svc.currentLimit,
+	} {
+		l.mu.Lock()
+		if len(l.hits) != 0 {
+			t.Errorf("%s limiter kept %d keys after prune", name, len(l.hits))
+		}
+		l.mu.Unlock()
 	}
 }

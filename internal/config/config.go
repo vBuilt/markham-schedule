@@ -21,7 +21,8 @@ type Config struct {
 	BaseURL string
 	// ResendAPIKey enables sending email through Resend; MailFrom is the sender.
 	ResendAPIKey, MailFrom string
-	// TurnstileSiteKey and TurnstileSecret enable Cloudflare Turnstile.
+	// TurnstileSiteKey and TurnstileSecret enable Cloudflare Turnstile. Load
+	// accepts both or neither, so Turnstile is on exactly when both are set.
 	TurnstileSiteKey, TurnstileSecret string
 	// TrustedProxies are the proxy networks whose forwarded headers are believed.
 	TrustedProxies []netip.Prefix
@@ -46,6 +47,9 @@ func Load(getenv func(string) string) (Config, error) {
 		MailFrom:         str("MAIL_FROM", "Markham Drop-In <no-reply@vincentlfilms.com>"),
 		TurnstileSiteKey: getenv("TURNSTILE_SITE_KEY"),
 		TurnstileSecret:  getenv("TURNSTILE_SECRET"),
+	}
+	if (c.TurnstileSiteKey == "") != (c.TurnstileSecret == "") {
+		return Config{}, fmt.Errorf("TURNSTILE_SITE_KEY and TURNSTILE_SECRET: set both to turn the bot check on, or neither to leave it off")
 	}
 	if c.BaseURL != "" {
 		if u, err := url.Parse(c.BaseURL); err != nil || u.Scheme == "" || u.Host == "" {

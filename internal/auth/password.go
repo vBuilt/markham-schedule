@@ -18,7 +18,24 @@ const (
 	argonThreads = 1
 	argonSaltLen = 16
 	argonKeyLen  = 32
+
+	// argonSlots caps concurrent argon2 runs; each takes argonMemory KiB.
+	argonSlots = 4
 )
+
+var (
+	argonSem = make(chan struct{}, argonSlots)
+	// argonKey derives the key; tests replace it to observe calls.
+	argonKey = argon2.IDKey
+)
+
+// deriveKey runs argon2id, waiting for a free slot so that at most argonSlots
+// derivations (and their memory) are in use at once.
+func deriveKey(pw, salt []byte, t, m uint32, p uint8, keyLen uint32) []byte {
+	argonSem <- struct{}{}
+	defer func() { <-argonSem }()
+	return argonKey(pw, salt, t, m, p, keyLen)
+}
 
 // HashPassword returns an argon2id hash as a PHC string.
 func HashPassword(pw string) (string, error) {
@@ -26,7 +43,7 @@ func HashPassword(pw string) (string, error) {
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	key := argon2.IDKey([]byte(pw), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	key := deriveKey([]byte(pw), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", argon2.Version,
 		argonMemory, argonTime, argonThreads,
 		base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(key)), nil
@@ -59,6 +76,6 @@ func CheckPassword(encoded, pw string) bool {
 	if err != nil || len(want) == 0 {
 		return false
 	}
-	got := argon2.IDKey([]byte(pw), salt, t, m, p, uint32(len(want)))
+	got := deriveKey([]byte(pw), salt, t, m, p, uint32(len(want)))
 	return subtle.ConstantTimeCompare(got, want) == 1
 }

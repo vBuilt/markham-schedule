@@ -21,6 +21,7 @@ type Store interface {
 	UserByID(ctx context.Context, id int64) (store.User, error)
 	SetPassword(ctx context.Context, userID int64, hash string) error
 	ConfirmUser(ctx context.Context, userID int64) error
+	TouchUser(ctx context.Context, userID int64, now time.Time) error
 	DeleteUser(ctx context.Context, userID int64) error
 	CreateAuthSession(ctx context.Context, tokenHash []byte, userID int64, expires time.Time) error
 	AuthSession(ctx context.Context, tokenHash []byte, now time.Time) (int64, time.Time, error)
@@ -76,10 +77,11 @@ type Service struct {
 	st Store
 	o  Options
 
-	emailLimit   *Limiter // emails sent per address
-	ipLimit      *Limiter // email-sending requests per IP
-	signInLimit  *Limiter // sign-in attempts per email+IP
-	currentLimit *Limiter // current-password checks per user ID
+	emailLimit    *Limiter // emails sent per address
+	ipLimit       *Limiter // email-sending requests per IP
+	signInLimit   *Limiter // sign-in attempts per email+IP
+	signInIPLimit *Limiter // sign-in attempts per IP, whatever the email
+	currentLimit  *Limiter // current-password checks per user ID
 
 	dummyHash string
 }
@@ -107,13 +109,14 @@ func NewService(st Store, o Options) *Service {
 		panic(fmt.Sprintf("auth: dummy hash: %v", err))
 	}
 	return &Service{
-		st:           st,
-		o:            o,
-		emailLimit:   NewLimiter(3, time.Hour, o.Now),
-		ipLimit:      NewLimiter(10, time.Hour, o.Now),
-		signInLimit:  NewLimiter(5, 15*time.Minute, o.Now),
-		currentLimit: NewLimiter(5, 15*time.Minute, o.Now),
-		dummyHash:    dummy,
+		st:            st,
+		o:             o,
+		emailLimit:    NewLimiter(3, time.Hour, o.Now),
+		ipLimit:       NewLimiter(10, time.Hour, o.Now),
+		signInLimit:   NewLimiter(5, 15*time.Minute, o.Now),
+		signInIPLimit: NewLimiter(30, 15*time.Minute, o.Now),
+		currentLimit:  NewLimiter(5, 15*time.Minute, o.Now),
+		dummyHash:     dummy,
 	}
 }
 
@@ -178,6 +181,10 @@ func (s *Service) SignUp(ctx context.Context, email, password, botToken, ip stri
 		if err := s.st.DeleteUserTokens(ctx, u.ID, kindConfirm); err != nil {
 			return err
 		}
+		// A fresh confirmation email gets a fresh 7 days before purge.
+		if err := s.st.TouchUser(ctx, u.ID, s.o.Now()); err != nil {
+			return err
+		}
 	}
 	return s.sendConfirm(ctx, u)
 }
@@ -204,11 +211,20 @@ func (s *Service) ResendConfirm(ctx context.Context, u store.User, ip string) er
 	if !s.allowEmail(u.Email, ip) {
 		return ErrRateLimited
 	}
+	// A fresh confirmation email gets a fresh 7 days before purge.
+	if err := s.st.TouchUser(ctx, u.ID, s.o.Now()); err != nil {
+		return err
+	}
 	return s.sendConfirm(ctx, u)
 }
 
 func (s *Service) SignIn(ctx context.Context, email, password, ip string) (string, store.User, error) {
 	email, _ = NormalizeEmail(email)
+	// Per IP first, so one address can't spray guesses (and argon2 work)
+	// across many emails. Success never resets this one.
+	if !s.signInIPLimit.Allow(ip) {
+		return "", store.User{}, ErrRateLimited
+	}
 	key := email + "|" + ip
 	if !s.signInLimit.Allow(key) {
 		return "", store.User{}, ErrRateLimited
@@ -289,18 +305,24 @@ func (s *Service) Forgot(ctx context.Context, email, botToken, ip string) error 
 // Reset sets a new password from a reset link, signs the user out everywhere
 // and returns a fresh session for the current device.
 func (s *Service) Reset(ctx context.Context, rawToken, newPassword string) (string, error) {
+	// Length first so a weak password doesn't burn the link; then the token,
+	// so a bad link costs no argon2 work.
 	if !validPassword(newPassword) {
 		return "", ErrWeakPassword
-	}
-	hash, err := HashPassword(newPassword)
-	if err != nil {
-		return "", err
 	}
 	uid, err := s.useToken(ctx, rawToken, kindReset)
 	if err != nil {
 		return "", err
 	}
+	hash, err := HashPassword(newPassword)
+	if err != nil {
+		return "", err
+	}
 	if err := s.st.SetPassword(ctx, uid, hash); err != nil {
+		return "", err
+	}
+	// The link reached the inbox, which proves ownership as a confirm link would.
+	if err := s.st.ConfirmUser(ctx, uid); err != nil {
 		return "", err
 	}
 	if err := s.st.DeleteUserSessions(ctx, uid, nil); err != nil {
@@ -357,6 +379,14 @@ func (s *Service) Cleanup(ctx context.Context) error {
 		s.o.Log.Info("auth cleanup", "deleted", n)
 	}
 	return nil
+}
+
+// Prune drops rate-limit entries that have aged out of their windows, so the
+// limiters' memory stays bounded. Call it periodically.
+func (s *Service) Prune() {
+	for _, l := range []*Limiter{s.emailLimit, s.ipLimit, s.signInLimit, s.signInIPLimit, s.currentLimit} {
+		l.Prune()
+	}
 }
 
 // checkCurrent verifies password against the user's stored hash, read fresh

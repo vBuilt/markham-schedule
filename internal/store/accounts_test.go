@@ -232,3 +232,24 @@ func TestPurgeAuth(t *testing.T) {
 		t.Errorf("dead token kept: %v", err)
 	}
 }
+
+func TestTouchUser(t *testing.T) {
+	s, _ := openT(t)
+	ctx := context.Background()
+	u, _ := s.CreateUser(ctx, "a@x.com", "h", t0)
+	later := t0.Add(6 * 24 * time.Hour)
+	if err := s.TouchUser(ctx, u.ID, later); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.UserByID(ctx, u.ID)
+	if !got.Created.Equal(later) {
+		t.Fatalf("Created = %v, want %v", got.Created, later)
+	}
+	// Purge counts from the touch, not the original creation.
+	if _, err := s.PurgeAuth(ctx, t0.Add(8*24*time.Hour), t0.Add(24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UserByID(ctx, u.ID); err != nil {
+		t.Errorf("touched user purged: %v", err)
+	}
+}

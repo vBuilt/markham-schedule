@@ -181,16 +181,18 @@ func buildMailerAndBot(cfg config.Config, log *slog.Logger) (auth.Mailer, auth.B
 		log.Warn("RESEND_API_KEY not set: emails are written to the log, not sent")
 		mailer = auth.LogMailer{Log: log}
 	}
+	// config.Load guarantees the Turnstile keys are both set or both empty, so
+	// when the check is off the pages also get an empty site key.
 	var bot auth.BotCheck = &auth.Turnstile{Secret: cfg.TurnstileSecret}
 	if cfg.TurnstileSecret == "" {
-		log.Warn("TURNSTILE_SECRET not set: bot protection is off")
+		log.Warn("TURNSTILE_SITE_KEY and TURNSTILE_SECRET not set: bot protection is off")
 		bot = auth.NoBotCheck{}
 	}
 	return mailer, bot
 }
 
-// cleanupLoop purges expired sessions, tokens and stale accounts hourly until
-// ctx is done.
+// cleanupLoop purges expired sessions, tokens and stale accounts, and prunes
+// aged-out rate-limit entries, hourly until ctx is done.
 func cleanupLoop(ctx context.Context, svc *auth.Service, log *slog.Logger) {
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
@@ -198,6 +200,7 @@ func cleanupLoop(ctx context.Context, svc *auth.Service, log *slog.Logger) {
 		if err := svc.Cleanup(ctx); err != nil && ctx.Err() == nil {
 			log.Error("auth cleanup", "err", err)
 		}
+		svc.Prune()
 		select {
 		case <-ctx.Done():
 			return
