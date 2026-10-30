@@ -2,8 +2,11 @@
 package web
 
 import (
+	"bytes"
 	_ "embed"
+	"html/template"
 	"net/http"
+	"net/url"
 )
 
 //go:embed index.html
@@ -56,3 +59,26 @@ var (
 	Verify  = page(verify)
 	Account = page(account)
 )
+
+//go:embed watchstop.html
+var watchStop string
+
+var watchStopTmpl = template.Must(template.New("watchstop").Parse(watchStop))
+
+// WatchStop serves the page shown after a stop link is followed; msg is
+// chosen by the server. apiToken, if any, is carried on the calendar link.
+func WatchStop(w http.ResponseWriter, msg, apiToken string) {
+	home := "/"
+	if apiToken != "" {
+		home = "/?token=" + url.QueryEscape(apiToken)
+	}
+	var buf bytes.Buffer
+	if err := watchStopTmpl.Execute(&buf, struct {
+		Message string
+		Home    template.URL
+	}{msg, template.URL(home)}); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	write(w, buf.Bytes())
+}

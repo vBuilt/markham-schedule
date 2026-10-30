@@ -10,6 +10,7 @@ import (
 
 	"github.com/vBuilt/markham-schedule/internal/auth"
 	"github.com/vBuilt/markham-schedule/internal/store"
+	"github.com/vBuilt/markham-schedule/internal/watch"
 )
 
 // authHTTP returns account handlers over a real store plus a cookie for a
@@ -105,5 +106,23 @@ func TestPublicRoutesStayOpen(t *testing.T) {
 	}
 	if w := get(h, "/login"); w.Code != 401 {
 		t.Error("login page without token:", w.Code)
+	}
+}
+
+func TestWatchRoutesWired(t *testing.T) {
+	ah, _ := authHTTP(t, "", true)
+	h := newH(&fakeStore{}, Options{Auth: ah, Watch: watch.NewHTTP(nil, nil, ah)})
+	for _, p := range []string{"/api/watches", "/api/watches/all"} {
+		r := httptest.NewRequest("GET", p, nil)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != 401 {
+			t.Fatalf("%s signed out = %d", p, w.Code)
+		}
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/api/status", nil))
+	if w.Code != 200 {
+		t.Fatalf("/api/status = %d", w.Code)
 	}
 }
