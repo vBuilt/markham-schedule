@@ -214,6 +214,7 @@ func (cy *cycle) check(id string, st store.WatchState) {
 	st.SessionID = id
 
 	s, err := c.st.SessionByID(ctx, id)
+	var opened *schedule.Session // set when this check moves the session from full to open
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		if cy.miss(&st, "session is no longer in the schedule") {
@@ -222,6 +223,9 @@ func (cy *cycle) check(id string, st store.WatchState) {
 	case err != nil:
 		st.LastError = "load session: " + err.Error()
 		log.Error("load watched session", "session", id, "err", err)
+	case !s.Start.After(cy.now):
+		// Started (PurgeWatches failed or raced): never check or email it.
+		return
 	default:
 		raw, found, failure := cy.find(s)
 		switch {
@@ -233,7 +237,7 @@ func (cy *cycle) check(id string, st store.WatchState) {
 			if left != nil {
 				if st.LastSpots == 0 && *left > 0 {
 					s.Spots, s.SpotsLeft = raw.Spots, left
-					c.notify(ctx, s, *left, cy.now)
+					opened = &s
 				}
 				st.LastSpots = *left
 			}
@@ -251,8 +255,14 @@ func (cy *cycle) check(id string, st store.WatchState) {
 	}
 	now := cy.now
 	st.LastChecked = &now
+	// Save before emailing: if the new open state can't be stored, a later
+	// cycle would see last_spots == 0 again and email everyone twice.
 	if err := c.st.SaveWatchState(ctx, st); err != nil {
 		log.Error("save watch state", "session", id, "err", err)
+		return
+	}
+	if opened != nil {
+		c.notify(ctx, *opened, st.LastSpots, now)
 	}
 }
 

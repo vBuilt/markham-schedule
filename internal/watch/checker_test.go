@@ -495,3 +495,51 @@ func TestRunStopsOnCancel(t *testing.T) {
 		t.Fatal("Run did not return")
 	}
 }
+
+// flakyStore wraps the real store with failing methods.
+type flakyStore struct {
+	*store.Store
+	failSave, failPurge bool
+}
+
+func (f *flakyStore) SaveWatchState(ctx context.Context, st store.WatchState) error {
+	if f.failSave {
+		return errors.New("database is locked")
+	}
+	return f.Store.SaveWatchState(ctx, st)
+}
+
+func (f *flakyStore) PurgeWatches(ctx context.Context, now time.Time) (int64, error) {
+	if f.failPurge {
+		return 0, errors.New("database is locked")
+	}
+	return f.Store.PurgeWatches(ctx, now)
+}
+
+func TestCycleSaveFailureNoDuplicateEmail(t *testing.T) {
+	e := newEnv(t)
+	fs := &flakyStore{Store: e.st, failSave: true}
+	e.c = New(e.src, fs, e.m, e.c.cfg)
+	e.serve("A", "1 spot")
+	e.cycle()
+	if e.emails() != 0 {
+		t.Fatalf("emails after failed save = %d, want 0", e.emails())
+	}
+	fs.failSave = false
+	e.cycle()
+	e.cycle()
+	if e.emails() != 1 {
+		t.Fatalf("emails = %d, want 1", e.emails())
+	}
+}
+
+func TestCycleNoEmailAfterStartWhenPurgeFails(t *testing.T) {
+	e := newEnv(t)
+	e.c = New(e.src, &flakyStore{Store: e.st, failPurge: true}, e.m, e.c.cfg)
+	e.serve("A", "1 spot")
+	e.now = time.Date(2026, 10, 31, 19, 0, 0, 0, toronto)
+	e.cycle()
+	if e.emails() != 0 || e.src.clsCalls != 0 {
+		t.Fatalf("emails = %d, Classes calls = %d", e.emails(), e.src.clsCalls)
+	}
+}
