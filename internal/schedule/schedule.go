@@ -1,0 +1,100 @@
+// Package schedule holds the core domain types shared across the service.
+package schedule
+
+import (
+	"strings"
+	"time"
+)
+
+type Address struct {
+	Street     string `json:"street"`
+	City       string `json:"city"`
+	PostalCode string `json:"postal_code"`
+}
+
+type Session struct {
+	ID          string    `json:"id"`
+	Categories  []string  `json:"categories"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Start       time.Time `json:"start"` // in America/Toronto
+	End         time.Time `json:"end"`
+	AllDay      bool      `json:"all_day"`
+	Centre      string    `json:"centre"`
+	Address     Address   `json:"address"`
+	Facility    string    `json:"facility"`
+	Age         string    `json:"age"`
+	MinAge      *int      `json:"min_age"`
+	MaxAge      *int      `json:"max_age"`
+	Price       string    `json:"price"`
+	Spots       string    `json:"spots"`
+	SpotsLeft   *int      `json:"spots_left"`
+	CourseID    string    `json:"course_id"`
+	BookingURL  string    `json:"booking_url"`
+	ScrapedAt   time.Time `json:"scraped_at"`
+}
+
+// Filter selects sessions. Values within a field are ORed, fields are ANDed;
+// all string matching is case-insensitive substring matching.
+type Filter struct {
+	Categories, Centres []string
+	Query               string    // substring of name or description
+	From, To            time.Time // zero = unbounded; session matches if Start >= From and Start < To
+	Limit               int       // 0 = no limit
+}
+
+func containsFold(s, sub string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
+}
+
+func (f Filter) Matches(s Session) bool {
+	if len(f.Categories) > 0 {
+		ok := false
+		for _, want := range f.Categories {
+			for _, c := range s.Categories {
+				if containsFold(c, want) {
+					ok = true
+				}
+			}
+		}
+		if !ok {
+			return false
+		}
+	}
+	if len(f.Centres) > 0 {
+		ok := false
+		for _, want := range f.Centres {
+			if containsFold(s.Centre, want) {
+				ok = true
+			}
+		}
+		if !ok {
+			return false
+		}
+	}
+	if f.Query != "" && !containsFold(s.Name, f.Query) && !containsFold(s.Description, f.Query) {
+		return false
+	}
+	if !f.From.IsZero() && s.Start.Before(f.From) {
+		return false
+	}
+	if !f.To.IsZero() && !s.Start.Before(f.To) {
+		return false
+	}
+	return true
+}
+
+type CategoryResult struct {
+	Name  string `json:"name"`
+	OK    bool   `json:"ok"`
+	Count int    `json:"count"`
+	Error string `json:"error,omitempty"`
+}
+
+type Status struct {
+	LastAttempt *time.Time       `json:"last_attempt"`
+	LastSuccess *time.Time       `json:"last_success"`
+	Categories  []CategoryResult `json:"categories"`
+	Total       int              `json:"total"`
+	Error       string           `json:"error,omitempty"`
+}
