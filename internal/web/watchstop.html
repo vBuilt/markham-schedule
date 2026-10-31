@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Watch stopped · Markham drop-in</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2312303b'/%3E%3Cpath d='M6 12h20M6 18h20M6 24h20' stroke='%23d9443a' stroke-width='2.5' stroke-dasharray='3 2'/%3E%3C/svg%3E">
@@ -41,6 +42,10 @@ p { margin: 0; }
   <div class="card" aria-live="polite">
     <h1>Spot watch</h1>
     <p>{{.Message}}</p>
+    {{if .Token}}<form method="post" action="{{.Action}}">
+      <input type="hidden" name="t" value="{{.Token}}">
+      <button class="btn" type="submit">Stop watching</button>
+    </form>{{end}}
     <a class="btn" href="{{.Home}}">Back to the calendar</a>
   </div>
 </main>

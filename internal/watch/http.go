@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/vBuilt/markham-schedule/internal/auth"
@@ -30,9 +31,10 @@ var _ HTTPStore = (*store.Store)(nil)
 
 // HTTP serves the watch endpoints and the stop page.
 type HTTP struct {
-	c  *Checker
-	st HTTPStore
-	a  *auth.HTTP
+	addMu sync.Mutex // serialises the limit checks and the insert in add
+	c     *Checker
+	st    HTTPStore
+	a     *auth.HTTP
 }
 
 func NewHTTP(c *Checker, st HTTPStore, a *auth.HTTP) *HTTP {
@@ -45,7 +47,8 @@ func (h *HTTP) Register(mux *http.ServeMux, wrap func(http.HandlerFunc) http.Han
 	mux.HandleFunc("POST /api/watches", wrap(h.a.CSRF(h.a.RequireConfirmed(h.add))))
 	mux.HandleFunc("POST /api/watches/delete", wrap(h.a.CSRF(h.a.RequireConfirmed(h.remove))))
 	mux.HandleFunc("GET /api/watches/all", wrap(h.a.RequireConfirmed(h.all)))
-	mux.HandleFunc("GET /watch/stop", wrap(h.stop))
+	mux.HandleFunc("GET /watch/stop", wrap(h.stopPage))
+	mux.HandleFunc("POST /watch/stop", wrap(h.a.CSRF(h.stop)))
 }
 
 type watchJSON struct {
@@ -112,6 +115,8 @@ func (h *HTTP) add(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid request")
 		return
 	}
+	h.addMu.Lock()
+	defer h.addMu.Unlock()
 	s, err := h.st.SessionByID(ctx, in.SessionID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "Session not found.")
@@ -171,14 +176,18 @@ func (h *HTTP) add(w http.ResponseWriter, r *http.Request) {
 	nw, err := h.st.AddWatch(ctx, u.ID, s.ID, s.Start, now)
 	if errors.Is(err, store.ErrWatchExists) { // lost a race with ourselves
 		code = http.StatusOK
-		err = nil
-		if cur, e := h.st.UserWatches(ctx, u.ID); e == nil {
-			for _, x := range cur {
-				if x.SessionID == s.ID {
-					nw = x
-				}
+		cur, e := h.st.UserWatches(ctx, u.ID)
+		if e != nil {
+			internalErr(w, r, e)
+			return
+		}
+		nw = store.Watch{UserID: u.ID, SessionID: s.ID, SessionStart: s.Start}
+		for _, x := range cur {
+			if x.SessionID == s.ID {
+				nw = x
 			}
 		}
+		err = nil
 	}
 	if err != nil {
 		internalErr(w, r, err)
@@ -247,9 +256,21 @@ func (h *HTTP) all(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"watches": out})
 }
 
+// stopPage only shows the confirmation: link scanners fetch GET links, so a
+// GET must never delete.
+func (h *HTTP) stopPage(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if t := q.Get("t"); t != "" {
+		web.WatchStop(w, "Stop emails for this session?", t, q.Get("token"))
+		return
+	}
+	web.WatchStop(w, "This watch was already stopped.", "", q.Get("token"))
+}
+
 func (h *HTTP) stop(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
 	msg := "This watch was already stopped."
-	if t := r.URL.Query().Get("t"); t != "" {
+	if t := r.PostFormValue("t"); t != "" {
 		ok, err := h.st.DeleteWatchByStopToken(r.Context(), auth.HashToken(t))
 		if err != nil {
 			internalErr(w, r, err)
@@ -259,7 +280,7 @@ func (h *HTTP) stop(w http.ResponseWriter, r *http.Request) {
 			msg = "You've stopped watching this session."
 		}
 	}
-	web.WatchStop(w, msg, r.URL.Query().Get("token"))
+	web.WatchStop(w, msg, "", r.URL.Query().Get("token"))
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

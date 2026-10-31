@@ -65,18 +65,20 @@ var watchStop string
 
 var watchStopTmpl = template.Must(template.New("watchstop").Parse(watchStop))
 
-// WatchStop serves the page shown after a stop link is followed; msg is
-// chosen by the server. apiToken, if any, is carried on the calendar link.
-func WatchStop(w http.ResponseWriter, msg, apiToken string) {
-	home := "/"
+// WatchStop serves the stop-link page; msg is chosen by the server. A
+// non-empty stopToken adds a button that POSTs it back to /watch/stop.
+// apiToken, if any, is carried on the form action and the calendar link.
+func WatchStop(w http.ResponseWriter, msg, stopToken, apiToken string) {
+	home, action := "/", "/watch/stop"
 	if apiToken != "" {
-		home = "/?token=" + url.QueryEscape(apiToken)
+		q := url.QueryEscape(apiToken)
+		home, action = "/?token="+q, "/watch/stop?token="+q
 	}
 	var buf bytes.Buffer
 	if err := watchStopTmpl.Execute(&buf, struct {
-		Message string
-		Home    template.URL
-	}{msg, template.URL(home)}); err != nil {
+		Message, Token string
+		Home, Action   template.URL
+	}{msg, stopToken, template.URL(home), template.URL(action)}); err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}

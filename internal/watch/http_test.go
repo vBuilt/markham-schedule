@@ -9,8 +9,10 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -284,19 +286,73 @@ func TestStopLink(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// The earlier email's token still works (signed out, no CSRF needed).
+	// GET only shows the confirmation and never deletes.
 	w := e.do("GET", "/watch/stop?t="+toks[0]+"&token=abc", nil, nil, "")
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "You&#39;ve stopped watching this session.") ||
-		!strings.Contains(w.Body.String(), `href="/?token=abc"`) {
-		t.Fatalf("first: %d %s", w.Code, w.Body)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "Stop emails for this session?") ||
+		!strings.Contains(w.Body.String(), `action="/watch/stop?token=abc"`) {
+		t.Fatalf("get: %d %s", w.Code, w.Body)
+	}
+	if ws, _ := e.st.AllWatches(ctx); len(ws) != 1 {
+		t.Fatalf("GET deleted: %+v", ws)
+	}
+	post := func(tok, origin string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "http://localhost/watch/stop", strings.NewReader(url.Values{"t": {tok}}.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if origin == "" {
+			origin = "http://localhost"
+		}
+		r.Header.Set("Origin", origin)
+		rec := httptest.NewRecorder()
+		e.handler.ServeHTTP(rec, r)
+		return rec
+	}
+	if w := post(toks[0], "http://evil.example"); w.Code != 403 {
+		t.Fatalf("cross-site: %d", w.Code)
+	}
+	if ws, _ := e.st.AllWatches(ctx); len(ws) != 1 {
+		t.Fatal("cross-site POST deleted")
+	}
+	// The earlier email's token still works.
+	if w := post(toks[0], ""); w.Code != 200 || !strings.Contains(w.Body.String(), "You&#39;ve stopped watching this session.") {
+		t.Fatalf("post: %d %s", w.Code, w.Body)
 	}
 	if ws, _ := e.st.AllWatches(ctx); len(ws) != 0 {
 		t.Fatalf("watch not deleted: %+v", ws)
 	}
 	for _, tok := range []string{toks[0], toks[1], "bogus", ""} {
-		w = e.do("GET", "/watch/stop?t="+tok, nil, nil, "")
-		if w.Code != 200 || !strings.Contains(w.Body.String(), "This watch was already stopped.") {
+		if w := post(tok, ""); w.Code != 200 || !strings.Contains(w.Body.String(), "This watch was already stopped.") {
 			t.Fatalf("again %q: %d %s", tok, w.Code, w.Body)
 		}
+	}
+	if w := e.do("GET", "/watch/stop", nil, nil, ""); !strings.Contains(w.Body.String(), "This watch was already stopped.") {
+		t.Fatalf("empty t: %s", w.Body)
+	}
+}
+
+func TestConcurrentAddsRespectLimit(t *testing.T) {
+	e := newHTTPEnv(t)
+	c := e.user(t, "a@example.com", true)
+	future := t0.Add(24 * time.Hour)
+	const n = 15
+	for i := 0; i < n; i++ {
+		e.session(t, fmt.Sprintf("c%d", i), "Swim", future, "Full", ip(0))
+	}
+	codes := make(chan int, n)
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(id string) {
+			defer wg.Done()
+			codes <- e.do("POST", "/api/watches", map[string]string{"session_id": id}, c, "").Code
+		}(fmt.Sprintf("c%d", i))
+	}
+	wg.Wait()
+	close(codes)
+	got := map[int]int{}
+	for c := range codes {
+		got[c]++
+	}
+	if got[201] != MaxPerUser || got[429] != n-MaxPerUser {
+		t.Fatalf("codes = %v", got)
 	}
 }
