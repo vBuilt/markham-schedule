@@ -18,6 +18,7 @@ import (
 	"github.com/vBuilt/markham-schedule/internal/schedule"
 	"github.com/vBuilt/markham-schedule/internal/scraper"
 	"github.com/vBuilt/markham-schedule/internal/store"
+	"github.com/vBuilt/markham-schedule/internal/watch"
 	"github.com/vBuilt/markham-schedule/internal/web"
 )
 
@@ -48,8 +49,9 @@ type Options struct {
 	FeedDays                int // default 60
 	Loc                     *time.Location
 	Now                     func() time.Time
-	Refresher               Refresher  // nil disables POST /api/refresh
-	Auth                    *auth.HTTP // nil disables accounts; Refresh now then needs no sign-in
+	Refresher               Refresher   // nil disables POST /api/refresh
+	Auth                    *auth.HTTP  // nil disables accounts; Refresh now then needs no sign-in
+	Watch                   *watch.HTTP // nil disables spot watching; needs Auth
 }
 
 type server struct {
@@ -95,6 +97,9 @@ func New(st Store, o Options) http.Handler {
 		mux.HandleFunc("GET /reset", s.auth(web.Reset))
 		mux.HandleFunc("GET /verify", s.auth(web.Verify))
 		mux.HandleFunc("GET /account", s.auth(web.Account))
+		if o.Watch != nil {
+			o.Watch.Register(mux, s.auth)
+		}
 		h = o.Auth.Middleware(mux)
 	}
 	if o.Refresher != nil {

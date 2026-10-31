@@ -25,6 +25,7 @@ import (
 	"github.com/vBuilt/markham-schedule/internal/schedule"
 	"github.com/vBuilt/markham-schedule/internal/scraper"
 	"github.com/vBuilt/markham-schedule/internal/store"
+	"github.com/vBuilt/markham-schedule/internal/watch"
 )
 
 var version = "dev"
@@ -138,6 +139,7 @@ func run(cfg config.Config, once bool) int {
 	}
 	authSvc := auth.NewService(st, auth.Options{
 		BaseURL: publicURL, APIToken: cfg.APIToken, Mailer: mailer, Bot: bot, Log: log,
+		AdminEmails: cfg.AdminEmails,
 	})
 	authHTTP := authSvc.Handler(auth.HTTPOptions{
 		BaseURL: publicURL, Trusted: cfg.TrustedProxies, TurnstileSiteKey: cfg.TurnstileSiteKey,
@@ -147,10 +149,26 @@ func run(cfg config.Config, once bool) int {
 	// Join the cleanup loop before the deferred st.Close on every return path.
 	defer func() { stop(); <-cleanDone }()
 
+	pmWatch := perfectmind.New(perfectmind.Options{
+		BaseURL:   baseURL,
+		WidgetID:  widgetID,
+		UserAgent: "Mozilla/5.0 (compatible; markham-schedule/" + version + "; +https://github.com/vBuilt/markham-schedule)",
+		Delay:     0,
+		Logger:    log,
+	})
+	checker := watch.New(pmWatch, st, mailer, watch.Config{
+		Interval: cfg.WatchInterval, Loc: loc, BaseURL: publicURL, APIToken: cfg.APIToken, Log: log,
+	})
+	watchDone := make(chan struct{})
+	go func() { defer close(watchDone); checker.Run(ctx) }()
+	// Join the checker before the deferred st.Close on every return path.
+	defer func() { stop(); <-watchDone }()
+	log.Info("spot watching on", "interval", cfg.WatchInterval, "admins", len(cfg.AdminEmails))
+
 	h := api.New(st, api.Options{
 		Token: cfg.APIToken, CalName: "Markham Drop-In", Version: version,
 		Refresh: cfg.RefreshInterval, Retention: cfg.Retention, FeedDays: 60, Loc: loc,
-		Refresher: sc, Auth: authHTTP,
+		Refresher: sc, Auth: authHTTP, Watch: watch.NewHTTP(checker, st, authHTTP),
 	})
 	srv := &http.Server{Addr: cfg.ListenAddr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, 1)

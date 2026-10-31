@@ -94,7 +94,7 @@ func (h *HTTP) RequireConfirmed(next http.HandlerFunc) http.HandlerFunc {
 func (h *HTTP) Register(mux *http.ServeMux, wrap func(http.HandlerFunc) http.HandlerFunc) {
 	mux.HandleFunc("GET /api/auth/me", wrap(h.me))
 	post := func(path string, f http.HandlerFunc) {
-		mux.HandleFunc("POST "+path, wrap(h.csrf(f)))
+		mux.HandleFunc("POST "+path, wrap(h.CSRF(f)))
 	}
 	post("/api/auth/signup", h.signUp)
 	post("/api/auth/confirm", h.confirm)
@@ -112,12 +112,21 @@ type userJSON struct {
 	Email     string `json:"email"`
 	Name      string `json:"name"`
 	Confirmed bool   `json:"confirmed"`
+	IsAdmin   bool   `json:"is_admin"`
+}
+
+// IsAdmin reports whether u is an admin; it delegates to the Service.
+func (h *HTTP) IsAdmin(u store.User) bool { return h.s.IsAdmin(u) }
+
+func (h *HTTP) userJSON(u store.User) userJSON {
+	return userJSON{Email: u.Email, Name: u.Name, Confirmed: u.Confirmed, IsAdmin: h.s.IsAdmin(u)}
 }
 
 func (h *HTTP) me(w http.ResponseWriter, r *http.Request) {
 	var uj *userJSON
 	if u, ok := UserFrom(r.Context()); ok {
-		uj = &userJSON{Email: u.Email, Name: u.Name, Confirmed: u.Confirmed}
+		v := h.userJSON(u)
+		uj = &v
 		// Pages ask for me on load; re-issuing the cookie here keeps its
 		// lifetime in step with the server's sliding session expiry.
 		h.setSession(w, r, sessionToken(r))
@@ -173,7 +182,7 @@ func (h *HTTP) signIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setSession(w, r, raw)
-	writeJSON(w, http.StatusOK, map[string]userJSON{"user": {Email: u.Email, Name: u.Name, Confirmed: u.Confirmed}})
+	writeJSON(w, http.StatusOK, map[string]userJSON{"user": h.userJSON(u)})
 }
 
 func (h *HTTP) signOut(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +271,8 @@ func (h *HTTP) signedIn(f func(http.ResponseWriter, *http.Request, store.User)) 
 	}
 }
 
-func (h *HTTP) csrf(next http.HandlerFunc) http.HandlerFunc {
+// CSRF rejects requests whose Origin or Referer is not this site.
+func (h *HTTP) CSRF(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.sameOrigin(r) {
 			writeErr(w, http.StatusForbidden, "cross-site request refused")

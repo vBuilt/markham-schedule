@@ -103,7 +103,7 @@ Use the public link everywhere and the calendar refreshes wherever you are.
 | `GET /api/runs` | History of recent refreshes, newest first (`limit`, default 50, max 300) |
 | `POST /api/refresh` | Starts a refresh now. Needs a signed-in, confirmed account (`401` signed out, `403` not confirmed). `202` started, `409` one is already running, `429` too soon after the last one (with `Retry-After` in seconds) |
 | `GET /status` | The scrape status page |
-| `GET /api/auth/me` | `{user: {email, name, confirmed} or null, turnstile_site_key}`; `user` is `null` when signed out |
+| `GET /api/auth/me` | `{user: {email, name, confirmed, is_admin} or null, turnstile_site_key}`; `user` is `null` when signed out |
 | `POST /api/auth/signup` | `{email, password, turnstile}`: creates an account and emails a confirmation link. `202` |
 | `POST /api/auth/confirm` | `{t}`: confirms an email with the token from the link |
 | `POST /api/auth/resend` | Sends the confirmation email again. Needs sign-in |
@@ -114,6 +114,12 @@ Use the public link everywhere and the calendar refreshes wherever you are.
 | `POST /api/auth/password` | `{current, new}`: changes your password. Needs sign-in. `204` |
 | `POST /api/auth/name` | `{name}`: sets your display name (up to 60 characters; empty clears it). Needs sign-in. Returns `{name}` |
 | `POST /api/auth/delete` | `{password}`: deletes your account. Needs sign-in. `204` |
+| `GET /api/watches` | Your active spot watches. Needs a confirmed account |
+| `POST /api/watches` | `{session_id}`: watches a full session. Needs a confirmed account. Limits below |
+| `POST /api/watches/delete` | `{session_id}`: stops watching a session. Needs a confirmed account |
+| `GET /api/watches/all` | Every user's watches, for admins only (`403` otherwise) |
+| `GET /watch/stop?t=…` | The page the "Stop watching" email link opens; asks you to confirm. No sign-in |
+| `POST /watch/stop` | Form field `t` (form-encoded, same-origin): stops that watch. No sign-in |
 | `GET /calendar.ics` | The calendar feed described above |
 | `GET /healthz` | `ok` if the process is up |
 
@@ -232,6 +238,22 @@ The same information as JSON is at `/api/status` and `/api/runs`. In `/api/statu
 When a refresh fails, the previously saved data stays in place, and the service tries again in
 15 minutes. The page footer shows when the schedule was last updated.
 
+## Spot watching
+
+If a session is full, a signed-in, confirmed user can watch it. The service checks every minute
+(`WATCH_INTERVAL`, at least 30s) and emails the user when a place opens up. Only full sessions
+that haven't started can be watched.
+
+- The email says which session opened and has a **Stop watching** link, plus a **Book it now** link when the session has a booking link.
+  Stop watching works without signing in: it shows a confirm page, and the watch stops when you
+  confirm.
+- If the session fills up again and then reopens, the user is emailed again. This repeats until the
+  session starts.
+- Limits: 10 watches per user. Watches can cover at most 20 different program-and-day combinations across all users. A watch on a session in a combination that is already watched is always allowed; otherwise the service answers "at capacity" (`503`).
+- A watch ends after 3 successful checks that don't find the session (failed or empty checks don't count), or once the session has started.
+- Admins are the emails in `ADMIN_EMAILS`. They can see every user's watches
+  (`GET /api/watches/all`); `/api/auth/me` shows `is_admin` for them.
+
 ## Running it on vNas
 
 Two containers run on vNas. They were started over SSH (`ssh vnas`, which goes through Tailscale
@@ -248,11 +270,12 @@ docker run -d --name markham-schedule --restart unless-stopped \
   -e RESEND_API_KEY=<resend key> \
   -e TURNSTILE_SITE_KEY=<turnstile site key> \
   -e TURNSTILE_SECRET=<turnstile secret key> \
+  -e ADMIN_EMAILS=you@example.com \
   ghcr.io/vbuilt/markham-schedule:latest
 ```
 
-Replace the `<…>` placeholders with the real values from the steps below. Without the last three
-`-e` lines the service still runs, but emails are only written to the log and the bot check is off.
+Replace the `<…>` placeholders with the real values from the steps below. Without `RESEND_API_KEY` and
+the two `TURNSTILE_*` lines the service still runs, but emails are only written to the log and the bot check is off.
 
 - Host port **8095**, because Krusader already uses 8080 and vnas-dropbox uses 8090.
 - `--user 99:100` (Unraid's nobody:users) lets it write to the appdata folder.
@@ -339,6 +362,7 @@ docker run -d --name markham-schedule --restart unless-stopped \
   -e RESEND_API_KEY=<resend key> \
   -e TURNSTILE_SITE_KEY=<turnstile site key> \
   -e TURNSTILE_SECRET=<turnstile secret key> \
+  -e ADMIN_EMAILS=you@example.com \
   ghcr.io/vbuilt/markham-schedule:latest
 ```
 
@@ -374,6 +398,8 @@ Add them to the `docker run` command with `-e NAME=value`.
 | `TURNSTILE_SITE_KEY` | empty | Cloudflare Turnstile site key, shown to the browser. Set it together with `TURNSTILE_SECRET`: the bot check is on only when both are set. If both are empty the check is off, pages get no site key, and a warning is logged at startup. Setting just one is a startup error |
 | `TURNSTILE_SECRET` | empty | Cloudflare Turnstile secret key, used by the server to check answers. Set both or neither (see `TURNSTILE_SITE_KEY`) |
 | `TRUSTED_PROXIES` | `172.16.0.0/12` | Comma-separated networks whose `CF-Connecting-IP` and `X-Forwarded-Proto` headers are believed (Docker's range, where `cloudflared` connects from). Used for rate limits and the cookie's `Secure` flag |
+| `WATCH_INTERVAL` | `1m` | How often full sessions that are being watched are checked. Minimum `30s` |
+| `ADMIN_EMAILS` | empty | Comma-separated emails of admins, who can see all spot watches |
 
 Durations use Go syntax (`30m`, `3h`). The timezone is always America/Toronto.
 

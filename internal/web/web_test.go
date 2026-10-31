@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -19,5 +20,34 @@ func TestPagesRefuseFraming(t *testing.T) {
 		if got := w.Header().Get("Content-Security-Policy"); got != "frame-ancestors 'none'" {
 			t.Errorf("%s: Content-Security-Policy = %q", name, got)
 		}
+	}
+}
+
+func TestWatchUIMarkers(t *testing.T) {
+	for name, tc := range map[string]struct {
+		h    http.HandlerFunc
+		want []string
+	}{
+		"index":  {Index, []string{"Email me when a spot opens", "Stop watching", "/api/watches"}},
+		"status": {Status, []string{"Sessions you're watching", "All watches", "/api/watches/all"}},
+	} {
+		w := httptest.NewRecorder()
+		tc.h(w, httptest.NewRequest("GET", "/", nil))
+		body := w.Body.String()
+		for _, m := range tc.want {
+			if !strings.Contains(body, m) {
+				t.Errorf("%s page lacks %q", name, m)
+			}
+		}
+	}
+}
+
+func TestWatchStopReferrerPolicy(t *testing.T) {
+	body := watchStop
+	if !strings.Contains(body, `<meta name="referrer" content="same-origin">`) {
+		t.Error("stop page must use referrer policy same-origin")
+	}
+	if strings.Contains(body, `content="no-referrer"`) {
+		t.Error("no-referrer makes the Stop POST send Origin: null and fail CSRF")
 	}
 }
