@@ -18,6 +18,7 @@
   --grout-2: #ebf1f3;
   --rope: #d9443a;
   --focus: #1d6fb8;
+  --watch-bg: #1d6fb8; --watch-ink: #fff;
   --chip-mix: 14%;
   --shadow: 0 10px 30px rgba(18, 48, 59, .18);
   color-scheme: light;
@@ -33,6 +34,7 @@
     --grout-2: #1a333d;
     --rope: #ff6a5c;
     --focus: #6bb7ff;
+    --watch-bg: #6bb7ff; --watch-ink: #0e1c22;
     --chip-mix: 28%;
     --shadow: 0 10px 30px rgba(0, 0, 0, .5);
     color-scheme: dark;
@@ -170,7 +172,7 @@ button { cursor: pointer; }
 .dlg .wnote { color: var(--ink-2); font-size: 13px; margin: 10px 0 0; }
 .dlg .wnote a { color: var(--focus); }
 .dlg .werr { color: var(--rope); font-size: 13px; margin: 8px 0 0; }
-.btn.watch { background: var(--ink); color: var(--surface); border-color: var(--ink); font-weight: 700; }
+.btn.watch { background: var(--watch-bg); color: var(--watch-ink); border-color: var(--watch-bg); font-weight: 700; }
 .btn:disabled { opacity: .6; cursor: default; }
 .low { color: #b7791f; font-weight: 700; }
 .row.full b { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ink) 45%, transparent); }

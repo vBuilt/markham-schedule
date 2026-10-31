@@ -285,7 +285,7 @@ td .g { color: var(--good); font-weight: 700; } td .r { color: var(--bad); font-
   });
   setInterval(() => { if (!document.hidden) loadWatches(); }, 30000);
 
-  let timer, wasRefreshing = false;
+  let timer, wasRefreshing = false, watchesStarted = false;
   async function load() {
     clearTimeout(timer);
     let next = 60000;
@@ -296,7 +296,7 @@ td .g { color: var(--good); font-weight: 700; } td .r { color: var(--bad); font-
       wasRefreshing = st.refreshing;
       if (st.refreshing) next = 5000;
       renderStats(st, runs); renderCats(runs); renderChart(runs); renderRuns(runs);
-      loadWatches();
+      if (account && !watchesStarted) { watchesStarted = true; loadWatches(); }
     } catch (e) {
       $("#hero").style.setProperty("--state", "var(--bad)");
       $("#hero").innerHTML = `<div class="state">Can't reach the service</div><p>${esc(e.message)}. Check that the container is running on vNas.</p>`;
