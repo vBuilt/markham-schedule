@@ -92,6 +92,8 @@ func (s *Store) DeleteUser(ctx context.Context, userID int64) error {
 			`DELETE FROM auth_tokens WHERE user_id=?`,
 			`DELETE FROM watch_stop_tokens WHERE watch_id IN (SELECT id FROM watches WHERE user_id=?)`,
 			`DELETE FROM watches WHERE user_id=?`,
+			`DELETE FROM reminder_cancel_tokens WHERE reminder_id IN (SELECT id FROM reminders WHERE user_id=?)`,
+			`DELETE FROM reminders WHERE user_id=?`,
 			`DELETE FROM users WHERE id=?`,
 		} {
 			if _, err := tx.ExecContext(ctx, q, userID); err != nil {
