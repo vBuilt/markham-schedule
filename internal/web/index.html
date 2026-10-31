@@ -19,6 +19,7 @@
   --rope: #d9443a;
   --focus: #1d6fb8;
   --watch-bg: #1d6fb8; --watch-ink: #fff;
+  --remind-bg: #7a3fb0; --remind-ink: #fff;
   --chip-mix: 14%;
   --shadow: 0 10px 30px rgba(18, 48, 59, .18);
   color-scheme: light;
@@ -35,6 +36,7 @@
     --rope: #ff6a5c;
     --focus: #6bb7ff;
     --watch-bg: #6bb7ff; --watch-ink: #0e1c22;
+    --remind-bg: #c9a0f0; --remind-ink: #1d0e2c;
     --chip-mix: 28%;
     --shadow: 0 10px 30px rgba(0, 0, 0, .5);
     color-scheme: dark;
@@ -168,10 +170,13 @@ button { cursor: pointer; }
 .fullpill { font-size: 12px; padding: 2px 6px; }
 .watchtag { display: inline-block; background: var(--ink); color: var(--surface); font-weight: 700; font-size: 10px; line-height: 1; padding: 2px 4px; border-radius: 3px; letter-spacing: .02em; }
 .ev .watchtag { float: right; margin: 0 0 2px 3px; }
+.remindtag { display: inline-block; background: var(--remind-bg); color: var(--remind-ink); font-weight: 700; font-size: 10px; line-height: 1; padding: 2px 4px; border-radius: 3px; letter-spacing: .02em; }
+.ev .remindtag { float: right; margin: 0 0 2px 3px; }
 .dlg .on { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-left: 4px solid var(--good, #2f8f4e); background: var(--grout-2); border-radius: 6px; margin-bottom: 10px; }
 .dlg .wnote { color: var(--ink-2); font-size: 13px; margin: 10px 0 0; }
 .dlg .wnote a { color: var(--focus); }
 .dlg .werr { color: var(--rope); font-size: 13px; margin: 8px 0 0; }
+.btn.remind { background: var(--remind-bg); color: var(--remind-ink); border-color: var(--remind-bg); font-weight: 700; }
 .btn.watch { background: var(--watch-bg); color: var(--watch-ink); border-color: var(--watch-bg); font-weight: 700; }
 .btn:disabled { opacity: .6; cursor: default; }
 .low { color: #b7791f; font-weight: 700; }
@@ -366,7 +371,9 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   // Spot watching: me is GET /api/auth/me's user (or null); watched holds the session IDs this user watches.
   let me = null, accountsOn = false;
   const watched = new Set();
+  const reminded = new Map(); // session id -> remind_at (ISO)
   const watchTag = (s) => watched.has(s.id) ? '<span class="watchtag">Watching</span>' : "";
+  const remindTag = (s) => reminded.has(s.id) ? '<span class="remindtag">Reminder</span>' : "";
   const spotsHtml = (s) => isFull(s) ? '<span class="fullpill">Full</span>'
     : isLow(s) ? `<span class="low">Only ${s.spots_left} left</span>` : esc(s.spots);
   const tRange = (s) => s.all_day ? "All day" : `${tShort(s._s)} – ${tShort(s._e)}`;
@@ -562,7 +569,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     byDay.forEach((list, k) => {
       h += `<h3 class="${k === today ? "today" : ""}">${fmtK(k, { weekday: "long", month: "long", day: "numeric" })}${k === today ? " (today)" : ""}</h3>`;
       list.forEach((s) => {
-        h += `<button class="row ${isFull(s) ? "full" : ""}" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")}"><span class="t">${tRange(s)}</span><span><b>${esc(s.name)}</b><span class="w">${esc(s.centre)}${s.facility ? " · " + esc(s.facility) : ""}</span></span><span class="s">${watchTag(s)} ${spotsHtml(s)}${resLine(s)}</span></button>`;
+        h += `<button class="row ${isFull(s) ? "full" : ""}" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")}"><span class="t">${tRange(s)}</span><span><b>${esc(s.name)}</b><span class="w">${esc(s.centre)}${s.facility ? " · " + esc(s.facility) : ""}</span></span><span class="s">${watchTag(s)} ${remindTag(s)} ${spotsHtml(s)}${resLine(s)}</span></button>`;
       });
     });
     main.innerHTML = h + "</div>";
@@ -628,7 +635,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
         const top = y(sa), height = Math.max(y(sb) - top - 2, 18);
         const w = 100 / cols;
         const tall = height >= 44;
-        grid += `<button class="ev ${s._e.getTime() < nowMs ? "past" : ""} ${isFull(s) ? "full" : ""}" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")};top:${top}px;height:${height}px;left:calc(${col * w}% + 1px);width:calc(${w}% - 3px)" title="${isFull(s) ? "FULL: " : ""}${esc(s.name)}, ${tRange(s)}, ${esc(s.centre)}">${watchTag(s)}${isFull(s) ? '<span class="fulltag">Full</span>' : ""}`
+        grid += `<button class="ev ${s._e.getTime() < nowMs ? "past" : ""} ${isFull(s) ? "full" : ""}" data-id="${esc(s.id)}" style="--c:${colorOf(s.categories[0] || "")};top:${top}px;height:${height}px;left:calc(${col * w}% + 1px);width:calc(${w}% - 3px)" title="${isFull(s) ? "FULL: " : ""}${esc(s.name)}, ${tRange(s)}, ${esc(s.centre)}">${watchTag(s)}${remindTag(s)}${isFull(s) ? '<span class="fulltag">Full</span>' : ""}`
           + `<b>${esc(s.name.replace(/^Drop-?\s?In\s*:?\s*/i, ""))}</b><span class="t">${tShort(s._s)}</span>${tall ? `<span class="w">${esc(shortCentre(s.centre))}</span>` : ""}</button>`;
       });
       more.forEach((m) => {
@@ -687,8 +694,10 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
       ${s.description ? `<p class="desc">${esc(s.description)}</p>` : ""}
       ${watchBanner(s)}
       <div class="acts">${watchButton(s)}${s.booking_url ? `<a class="btn primary" href="${esc(s.booking_url)}" target="_blank" rel="noopener">Open booking page</a>` : ""}<button class="btn" value="close">Close</button></div>
-      ${watchNote(s)}<p class="werr" id="watchErr" role="alert" hidden></p></div>`;
+      ${watchNote(s)}<p class="werr" id="watchErr" role="alert" hidden></p>
+      ${remindBanner(s)}${remindButton(s) ? `<div class="acts">${remindButton(s)}</div>` : ""}${remindNote(s)}<p class="werr" id="remindErr" role="alert" hidden></p></div>`;
     d.querySelectorAll("[data-watch]").forEach((b) => b.addEventListener("click", () => toggleWatch(s, b)));
+    d.querySelectorAll("[data-remind]").forEach((b) => b.addEventListener("click", () => toggleRemind(s, b)));
     d.showModal();
   }
   // Watching applies to full sessions that haven't started; a watched session that has opened keeps its banner so it can be stopped.
@@ -718,6 +727,47 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     } catch (e) {
       err.textContent = e.message; err.hidden = false; btn.disabled = false;
     }
+  }
+  // Reminders: an email 2 minutes before residents' registration opens (needs more than 2m15s of lead time).
+  const remFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, weekday: "short", hour: "numeric", minute: "2-digit" });
+  const remWhen = (iso) => remFmt.format(new Date(iso));
+  const canRemind = (s) => !!(s.registration && s.registration.residents) && new Date(s.registration.residents).getTime() - Date.now() > 135000;
+  const remindBanner = (s) => reminded.has(s.id) && me ? `<div class="on">✓ Reminder set for ${esc(remWhen(reminded.get(s.id)))}</div>` : "";
+  const remindButton = (s) => reminded.has(s.id) ? '<button type="button" class="btn" data-remind="cancel">Cancel reminder</button>'
+    : canRemind(s) && me && me.confirmed ? '<button type="button" class="btn remind" data-remind="add">Remind me before registration opens</button>' : "";
+  const remindNote = (s) => {
+    if (reminded.has(s.id) || !canRemind(s) || !accountsOn) return "";
+    if (!me) return `<p class="wnote"><a href="${esc(withTok("/login?next=/"))}">Sign in</a> to get an email 2 minutes before registration opens.</p>`;
+    if (!me.confirmed) return `<p class="wnote">Confirm your email to set reminders. <a href="${esc(withTok("/account"))}">Open your account</a></p>`;
+    return "<p class=\"wnote\">We'll email you 2 minutes before residents can register.</p>";
+  };
+  async function toggleRemind(s, btn) {
+    const adding = btn.dataset.remind === "add", err = $("#remindErr");
+    err.hidden = true; btn.disabled = true;
+    try {
+      const r = await fetch(withTok(adding ? "/api/reminders" : "/api/reminders/delete"), {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: s.id }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.error || `Couldn't ${adding ? "set" : "cancel"} the reminder (HTTP ${r.status}).`);
+      }
+      await loadReminders();
+      openDetailRefresh(s);
+    } catch (e) {
+      err.textContent = e.message; err.hidden = false; btn.disabled = false;
+    }
+  }
+  async function loadReminders() {
+    if (!me || !me.confirmed) { reminded.clear(); return; }
+    try {
+      const r = await fetch(withTok("/api/reminders"));
+      if (!r.ok) return;
+      const b = await r.json();
+      reminded.clear();
+      (b.reminders || []).forEach((x) => { if (!x.sent_at) reminded.set(x.session_id, x.remind_at); });
+      render();
+    } catch {}
   }
   function openDetailRefresh(s) { const d = $("#detail"); if (d.open) d.close(); openDetail(s); }
   async function loadWatches() {
@@ -842,12 +892,12 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     if (!ok) { b.textContent = "Couldn't sign out. Try again."; return; }
     b.textContent = "Sign out";
     showAccount(null);
-    me = null; watched.clear(); render();
+    me = null; watched.clear(); reminded.clear(); render();
     $("#signInBtn").focus();
   };
   fetch(withTok("/api/auth/me"))
     .then((r) => (r.ok ? r.json() : null))
-    .then((m) => { if (m) { accountsOn = true; me = m.user; showAccount(m.user); loadWatches(); } }) // no accounts on this server: show neither
+    .then((m) => { if (m) { accountsOn = true; me = m.user; showAccount(m.user); loadWatches(); loadReminders(); } }) // no accounts on this server: show neither
     .catch(() => {});
 
   // ---- boot ----

@@ -90,6 +90,13 @@ td .g { color: var(--good); font-weight: 700; } td .r { color: var(--bad); font-
       <h2>All watches <small>(admin)</small></h2>
       <div class="card"><div id="watchAllBody"></div></div>
     </div>
+    <h2>Your reminders</h2>
+    <div class="card"><div id="remindMine"></div></div>
+    <p class="note" id="remindErr" role="alert" hidden></p>
+    <div id="remindAll" hidden>
+      <h2>All reminders <small>(admin)</small></h2>
+      <div class="card"><div id="remindAllBody"></div></div>
+    </div>
   </div>
 
   <h2>Latest refresh by program <small id="latestWhen"></small></h2>
@@ -283,7 +290,46 @@ td .g { color: var(--good); font-weight: 700; } td .r { color: var(--bad); font-
     } catch (x) { err.textContent = x.message; err.hidden = false; }
     loadWatches();
   });
-  setInterval(() => { if (!document.hidden) loadWatches(); }, 30000);
+  // ---- registration reminders: same gating and poll as the watches ----
+  const remFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, weekday: "short", hour: "numeric", minute: "2-digit" });
+  const remStatus = (x) => x.send_error ? `<span class="r">Couldn't send</span>` : x.sent_at ? `<span class="g">Sent</span>` : `Email at ${esc(remFmt.format(new Date(x.remind_at)))}`;
+  const remSession = (x) => `${esc(x.name || "Session")}<br><span class="m">${x.centre ? esc(x.centre) : ""}${x.centre && x.start ? " · " : ""}${x.start ? esc(dtFmt.format(new Date(x.start))) : ""}</span>`;
+  async function loadReminders() {
+    const u = account && account.user;
+    if (!u || !u.confirmed) return;
+    try {
+      const r = await fetch(withTok("/api/reminders"));
+      if (!r.ok) throw new Error();
+      const rs = (await r.json()).reminders || [];
+      $("#remindMine").innerHTML = rs.length
+        ? `<table><thead><tr><th>Session</th><th>Registration opens</th><th>Status</th><th></th></tr></thead><tbody>${rs.map((x) =>
+          `<tr><td>${remSession(x)}</td><td class="m">${esc(dtFmt.format(new Date(x.residents_at)))}</td><td>${remStatus(x)}</td><td>${x.sent_at || x.send_error ? "" : `<button type="button" class="linkbtn" data-cancel="${esc(x.session_id)}">Cancel</button>`}</td></tr>`).join("")}</tbody></table>`
+        : `<p class="note pad">You have no reminders. Open a session on the calendar to set one.</p>`;
+    } catch { return; }
+    const all = $("#remindAll");
+    if (!u.is_admin) { all.hidden = true; return; }
+    try {
+      const r = await fetch(withTok("/api/reminders/all"));
+      if (!r.ok) throw new Error();
+      const rs = (await r.json()).reminders || [];
+      all.hidden = false;
+      $("#remindAllBody").innerHTML = rs.length
+        ? `<table><thead><tr><th>Who</th><th>Session</th><th>Email time</th><th>Status</th></tr></thead><tbody>${rs.map((x) =>
+          `<tr><td>${esc(x.email)}</td><td>${remSession(x)}</td><td class="m">${esc(remFmt.format(new Date(x.remind_at)))}</td><td>${remStatus(x)}</td></tr>`).join("")}</tbody></table>`
+        : `<p class="note pad">Nobody has set a reminder.</p>`;
+    } catch { all.hidden = true; }
+  }
+  $("#remindMine").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-cancel]"); if (!b) return;
+    const err = $("#remindErr");
+    b.disabled = true; err.hidden = true;
+    try {
+      const r = await fetch(withTok("/api/reminders/delete"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: b.dataset.cancel }) });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Couldn't cancel the reminder (HTTP ${r.status}).`);
+    } catch (x) { err.textContent = x.message; err.hidden = false; }
+    loadReminders();
+  });
+  setInterval(() => { if (!document.hidden) { loadWatches(); loadReminders(); } }, 30000);
 
   let timer, wasRefreshing = false, watchesStarted = false;
   async function load() {
@@ -296,7 +342,7 @@ td .g { color: var(--good); font-weight: 700; } td .r { color: var(--bad); font-
       wasRefreshing = st.refreshing;
       if (st.refreshing) next = 5000;
       renderStats(st, runs); renderCats(runs); renderChart(runs); renderRuns(runs);
-      if (account && !watchesStarted) { watchesStarted = true; loadWatches(); }
+      if (account && !watchesStarted) { watchesStarted = true; loadWatches(); loadReminders(); }
     } catch (e) {
       $("#hero").style.setProperty("--state", "var(--bad)");
       $("#hero").innerHTML = `<div class="state">Can't reach the service</div><p>${esc(e.message)}. Check that the container is running on vNas.</p>`;

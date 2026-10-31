@@ -22,6 +22,7 @@ import (
 	"github.com/vBuilt/markham-schedule/internal/auth"
 	"github.com/vBuilt/markham-schedule/internal/config"
 	"github.com/vBuilt/markham-schedule/internal/perfectmind"
+	"github.com/vBuilt/markham-schedule/internal/remind"
 	"github.com/vBuilt/markham-schedule/internal/schedule"
 	"github.com/vBuilt/markham-schedule/internal/scraper"
 	"github.com/vBuilt/markham-schedule/internal/store"
@@ -163,12 +164,20 @@ func run(cfg config.Config, once bool) int {
 	go func() { defer close(watchDone); checker.Run(ctx) }()
 	// Join the checker before the deferred st.Close on every return path.
 	defer func() { stop(); <-watchDone }()
+	sender := remind.New(st, mailer, remind.Config{
+		Loc: loc, BaseURL: publicURL, APIToken: cfg.APIToken, Log: log,
+	})
+	remindDone := make(chan struct{})
+	go func() { defer close(remindDone); sender.Run(ctx) }()
+	defer func() { stop(); <-remindDone }()
+	log.Info("registration reminders on")
 	log.Info("spot watching on", "interval", cfg.WatchInterval, "admins", len(cfg.AdminEmails))
 
 	h := api.New(st, api.Options{
 		Token: cfg.APIToken, CalName: "Markham Drop-In", Version: version,
 		Refresh: cfg.RefreshInterval, Retention: cfg.Retention, FeedDays: 60, Loc: loc,
 		Refresher: sc, Auth: authHTTP, Watch: watch.NewHTTP(checker, st, authHTTP),
+		Remind: remind.NewHTTP(st, authHTTP, nil),
 	})
 	srv := &http.Server{Addr: cfg.ListenAddr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, 1)

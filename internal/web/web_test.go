@@ -51,3 +51,19 @@ func TestWatchStopReferrerPolicy(t *testing.T) {
 		t.Error("no-referrer makes the Stop POST send Origin: null and fail CSRF")
 	}
 }
+
+func TestReminderCancelPage(t *testing.T) {
+	w := httptest.NewRecorder()
+	ReminderCancel(w, "Cancel this registration reminder?", "tok", "abc")
+	b := w.Body.String()
+	for _, m := range []string{"<title>Reminder cancelled", `action="/reminder/cancel?token=abc"`, "Cancel reminder</button>", `value="tok"`} {
+		if !strings.Contains(b, m) {
+			t.Errorf("page lacks %q", m)
+		}
+	}
+	w = httptest.NewRecorder()
+	WatchStop(w, "m", "tok", "")
+	if b := w.Body.String(); !strings.Contains(b, "Stop watching</button>") || !strings.Contains(b, `action="/watch/stop"`) || !strings.Contains(b, "<title>Watch stopped") {
+		t.Errorf("WatchStop changed: %s", b)
+	}
+}

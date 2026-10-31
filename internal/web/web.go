@@ -65,22 +65,34 @@ var watchStop string
 
 var watchStopTmpl = template.Must(template.New("watchstop").Parse(watchStop))
 
-// WatchStop serves the stop-link page; msg is chosen by the server. A
-// non-empty stopToken adds a button that POSTs it back to /watch/stop.
-// apiToken, if any, is carried on the form action and the calendar link.
-func WatchStop(w http.ResponseWriter, msg, stopToken, apiToken string) {
-	home, action := "/", "/watch/stop"
+// stopPage renders the shared single-action confirm page. path is the form
+// action; apiToken, if any, is carried on it and on the calendar link.
+func stopPage(w http.ResponseWriter, title, heading, button, path, msg, token, apiToken string) {
+	home, action := "/", path
 	if apiToken != "" {
 		q := url.QueryEscape(apiToken)
-		home, action = "/?token="+q, "/watch/stop?token="+q
+		home, action = "/?token="+q, path+"?token="+q
 	}
 	var buf bytes.Buffer
 	if err := watchStopTmpl.Execute(&buf, struct {
-		Message, Token string
-		Home, Action   template.URL
-	}{msg, stopToken, template.URL(home), template.URL(action)}); err != nil {
+		Title, Heading, Button, Message, Token string
+		Home, Action                           template.URL
+	}{title, heading, button, msg, token, template.URL(home), template.URL(action)}); err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 	write(w, buf.Bytes())
+}
+
+// WatchStop serves the stop-link page; msg is chosen by the server. A
+// non-empty stopToken adds a button that POSTs it back to /watch/stop.
+// apiToken, if any, is carried on the form action and the calendar link.
+func WatchStop(w http.ResponseWriter, msg, stopToken, apiToken string) {
+	stopPage(w, "Watch stopped", "Spot watch", "Stop watching", "/watch/stop", msg, stopToken, apiToken)
+}
+
+// ReminderCancel serves the reminder cancel-link page, like WatchStop but
+// POSTing to /reminder/cancel.
+func ReminderCancel(w http.ResponseWriter, msg, cancelToken, apiToken string) {
+	stopPage(w, "Reminder cancelled", "Registration reminder", "Cancel reminder", "/reminder/cancel", msg, cancelToken, apiToken)
 }

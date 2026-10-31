@@ -120,6 +120,12 @@ Use the public link everywhere and the calendar refreshes wherever you are.
 | `GET /api/watches/all` | Every user's watches, for admins only (`403` otherwise) |
 | `GET /watch/stop?t=…` | The page the "Stop watching" email link opens; asks you to confirm. No sign-in |
 | `POST /watch/stop` | Form field `t` (form-encoded, same-origin): stops that watch. No sign-in |
+| `GET /api/reminders` | Your registration reminders. Needs a confirmed account |
+| `POST /api/reminders` | `{session_id}`: sets a reminder for a session. Needs a confirmed account. Limits below |
+| `POST /api/reminders/delete` | `{session_id}`: cancels a reminder. Needs a confirmed account. `204` |
+| `GET /api/reminders/all` | Every user's reminders, for admins only (`403` otherwise) |
+| `GET /reminder/cancel?t=…` | The page the "Cancel reminder" email link opens; asks you to confirm. No sign-in |
+| `POST /reminder/cancel` | Form field `t` (form-encoded, same-origin): cancels that reminder. No sign-in |
 | `GET /calendar.ics` | The calendar feed described above |
 | `GET /healthz` | `ok` if the process is up |
 
@@ -253,6 +259,18 @@ that haven't started can be watched.
 - A watch ends after 3 successful checks that don't find the session (failed or empty checks don't count), or once the session has started.
 - Admins are the emails in `ADMIN_EMAILS`. They can see every user's watches
   (`GET /api/watches/all`); `/api/auth/me` shows `is_admin` for them.
+
+## Registration reminders
+
+A signed-in, confirmed user can ask for an email 2 minutes before a session's Residents
+registration opens. Open the session on the calendar and choose **Remind me before registration
+opens**. There is no config; the service checks for due reminders on its own.
+
+- Only sessions whose Residents registration time is known and more than 2 minutes 15 seconds away can get a reminder.
+- The email says which session opens and when, and has a **Cancel reminder** link, plus a **Book it now** link when the session has a booking link. Cancelling works without signing in: it shows a confirm page, and the reminder is cancelled when you confirm.
+- Each reminder is sent once. The status page lists your reminders (pending, sent, or couldn't send) and lets you cancel pending ones.
+- Limit: 10 pending reminders per user (`429` after that).
+- Admins can see every user's reminders (`GET /api/reminders/all`).
 
 ## Running it on vNas
 
