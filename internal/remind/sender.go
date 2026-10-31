@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/vBuilt/markham-schedule/internal/auth"
@@ -27,6 +28,7 @@ const (
 
 const (
 	mailTimeout  = 30 * time.Second
+	claimTimeout = 10 * time.Second // store calls after the claim, which must outlive shutdown
 	fallbackSite = "https://cityofmarkham.perfectmind.com"
 )
 
@@ -58,6 +60,7 @@ type Sender struct {
 	st  Store
 	m   auth.Mailer
 	cfg Config
+	wg  sync.WaitGroup // default Async sends in flight
 }
 
 func New(st Store, m auth.Mailer, cfg Config) *Sender {
@@ -71,19 +74,27 @@ func New(st Store, m auth.Mailer, cfg Config) *Sender {
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
-	if cfg.Async == nil {
-		cfg.Async = func(f func()) { go f() }
-	}
 	if cfg.Log == nil {
 		cfg.Log = slog.Default()
 	}
-	return &Sender{st: st, m: m, cfg: cfg}
+	s := &Sender{st: st, m: m, cfg: cfg}
+	if cfg.Async == nil {
+		s.cfg.Async = func(f func()) {
+			s.wg.Add(1)
+			go func() {
+				defer s.wg.Done()
+				f()
+			}()
+		}
+	}
+	return s
 }
 
 // Run ticks now and then every TickEvery until ctx ends.
 func (s *Sender) Run(ctx context.Context) {
 	t := time.NewTicker(TickEvery)
 	defer t.Stop()
+	defer s.wg.Wait() // let queued emails finish before the caller closes the store
 	for {
 		s.Tick(ctx)
 		select {
@@ -158,20 +169,28 @@ func (s *Sender) handle(ctx context.Context, r store.Reminder, now time.Time) {
 	if !ok {
 		return
 	}
-	u, err := s.st.UserByID(ctx, r.UserID)
-	if err != nil {
-		if !errors.Is(err, store.ErrNotFound) {
-			log.Error("load reminder user", "reminder", r.ID, "err", err)
+	// The claim is recorded, so finish the job even if ctx ends, and record
+	// any failure so the status page doesn't show a silent "Sent".
+	cctx, stop := context.WithTimeout(context.WithoutCancel(ctx), claimTimeout)
+	defer stop()
+	fail := func(reason string, err error) {
+		log.Error(reason, "reminder", r.ID, "err", err)
+		if err := s.st.SetReminderError(cctx, r.ID, reason); err != nil {
+			log.Error("record reminder error", "reminder", r.ID, "err", err)
 		}
+	}
+	u, err := s.st.UserByID(cctx, r.UserID)
+	if err != nil {
+		fail("user not found", err)
 		return
 	}
 	raw, hash, err := auth.NewToken()
 	if err != nil {
-		log.Error("new cancel token", "reminder", r.ID, "err", err)
+		fail("could not create cancel token", err)
 		return
 	}
-	if err := s.st.AddReminderCancelToken(ctx, r.ID, hash); err != nil {
-		log.Error("save cancel token", "reminder", r.ID, "err", err)
+	if err := s.st.AddReminderCancelToken(cctx, r.ID, hash); err != nil {
+		fail("could not save cancel token", err)
 		return
 	}
 	cancel := s.cfg.BaseURL + "/reminder/cancel?t=" + url.QueryEscape(raw)
@@ -186,7 +205,9 @@ func (s *Sender) handle(ctx context.Context, r store.Reminder, now time.Time) {
 		defer stop()
 		if err := s.m.Send(mctx, to, subject, text, h); err != nil {
 			log.Error("send reminder email failed", "reminder", id, "err", err)
-			if err := s.st.SetReminderError(context.WithoutCancel(ctx), id, err.Error()); err != nil {
+			ectx, estop := context.WithTimeout(context.WithoutCancel(ctx), claimTimeout)
+			defer estop()
+			if err := s.st.SetReminderError(ectx, id, err.Error()); err != nil {
 				log.Error("record reminder error", "reminder", id, "err", err)
 			}
 		}

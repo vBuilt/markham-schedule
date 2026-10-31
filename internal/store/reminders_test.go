@@ -153,3 +153,20 @@ func TestDeleteUserRemovesReminders(t *testing.T) {
 		t.Fatal("token remains")
 	}
 }
+
+func TestReminderSentByCancelToken(t *testing.T) {
+	s, _ := openT(t)
+	ctx := context.Background()
+	r, _ := s.AddReminder(ctx, 1, "s1", t0.Add(time.Hour), t0)
+	s.AddReminderCancelToken(ctx, r.ID, []byte("a"))
+	if sent, found, err := s.ReminderSentByCancelToken(ctx, []byte("a")); err != nil || sent || !found {
+		t.Fatalf("pending = %v %v %v", sent, found, err)
+	}
+	s.MarkReminderSent(ctx, r.ID, t0)
+	if sent, found, err := s.ReminderSentByCancelToken(ctx, []byte("a")); err != nil || !sent || !found {
+		t.Fatalf("sent = %v %v %v", sent, found, err)
+	}
+	if _, found, _ := s.ReminderSentByCancelToken(ctx, []byte("zz")); found {
+		t.Fatal("unknown token found")
+	}
+}

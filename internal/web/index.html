@@ -765,7 +765,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
       if (!r.ok) return;
       const b = await r.json();
       reminded.clear();
-      (b.reminders || []).forEach((x) => reminded.set(x.session_id, x.remind_at));
+      (b.reminders || []).forEach((x) => { if (!x.sent_at) reminded.set(x.session_id, x.remind_at); });
       render();
     } catch {}
   }

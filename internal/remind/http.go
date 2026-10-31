@@ -20,6 +20,7 @@ type HTTPStore interface {
 	SessionByID(ctx context.Context, id string) (schedule.Session, error)
 	AddReminder(ctx context.Context, userID int64, sessionID string, residentsAt, now time.Time) (store.Reminder, error)
 	DeleteReminder(ctx context.Context, userID int64, sessionID string) (bool, error)
+	ReminderSentByCancelToken(ctx context.Context, hash []byte) (sent, found bool, err error)
 	DeleteReminderByCancelToken(ctx context.Context, hash []byte) (bool, error)
 	UserReminders(ctx context.Context, userID int64) ([]store.Reminder, error)
 	AllReminders(ctx context.Context) ([]store.Reminder, error)
@@ -254,13 +255,24 @@ func (h *HTTP) cancel(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
 	msg := "This reminder was already cancelled."
 	if t := r.PostFormValue("t"); t != "" {
-		ok, err := h.st.DeleteReminderByCancelToken(r.Context(), auth.HashToken(t))
+		hash := auth.HashToken(t)
+		sent, _, err := h.st.ReminderSentByCancelToken(r.Context(), hash)
 		if err != nil {
 			internalErr(w, r, err)
 			return
 		}
-		if ok {
-			msg = "Your reminder is cancelled."
+		if sent {
+			// Keep the "Sent" record; there is nothing left to cancel.
+			msg = "This reminder was already sent."
+		} else {
+			ok, err := h.st.DeleteReminderByCancelToken(r.Context(), hash)
+			if err != nil {
+				internalErr(w, r, err)
+				return
+			}
+			if ok {
+				msg = "Your reminder is cancelled."
+			}
 		}
 	}
 	web.ReminderCancel(w, msg, "", r.URL.Query().Get("token"))

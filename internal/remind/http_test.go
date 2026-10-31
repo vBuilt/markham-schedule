@@ -336,3 +336,19 @@ func TestCancelPostSingleUse(t *testing.T) {
 		}
 	}
 }
+
+func TestCancelPostAlreadySentKeepsRecord(t *testing.T) {
+	e, tok := cancelSetup(t)
+	ctx := context.Background()
+	rs, _ := e.st.AllReminders(ctx)
+	if ok, err := e.st.MarkReminderSent(ctx, rs[0].ID, ht0); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	w := e.postForm(tok, "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "This reminder was already sent.") {
+		t.Fatalf("post: %d %s", w.Code, w.Body)
+	}
+	if rs, _ := e.st.AllReminders(ctx); len(rs) != 1 || rs[0].SentAt == nil {
+		t.Fatalf("sent record removed: %+v", rs)
+	}
+}

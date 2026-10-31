@@ -141,6 +141,22 @@ func (s *Store) AddReminderCancelToken(ctx context.Context, reminderID int64, ha
 	return err
 }
 
+// ReminderSentByCancelToken reports whether the reminder the token belongs to
+// has already been sent. found is false if the token is unknown.
+func (s *Store) ReminderSentByCancelToken(ctx context.Context, hash []byte) (sent, found bool, err error) {
+	var sentUnix sql.NullInt64
+	err = s.db.QueryRowContext(ctx,
+		`SELECT r.sent_unix FROM reminder_cancel_tokens t JOIN reminders r ON r.id=t.reminder_id WHERE t.token_hash=?`,
+		hash).Scan(&sentUnix)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	return sentUnix.Valid, true, nil
+}
+
 // DeleteReminderByCancelToken removes the reminder the token belongs to. It
 // reports false, without error, if the token is unknown (e.g. already used).
 func (s *Store) DeleteReminderByCancelToken(ctx context.Context, hash []byte) (bool, error) {

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -34,6 +35,7 @@ type fakeStore struct {
 	sessions map[string]schedule.Session
 	users    map[int64]store.User
 	tokens   int
+	tokenErr error
 	purged   time.Time
 }
 
@@ -79,6 +81,9 @@ func (f *fakeStore) DropReminder(_ context.Context, id int64) error {
 func (f *fakeStore) AddReminderCancelToken(context.Context, int64, []byte) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.tokenErr != nil {
+		return f.tokenErr
+	}
 	f.tokens++
 	return nil
 }
@@ -300,5 +305,74 @@ func TestEmailNoBookingURL(t *testing.T) {
 		if !strings.Contains(body, "https://cityofmarkham.perfectmind.com") || strings.Contains(body, "Book it") {
 			t.Errorf("body:\n%s", body)
 		}
+	}
+}
+
+func TestTickTokenFailureRecorded(t *testing.T) {
+	e := newEnv(t)
+	e.st.tokenErr = errors.New("disk full")
+	e.tick(17, 28, 0)
+	r := e.st.rems[1]
+	if r.SentAt == nil || r.SendError == "" || len(e.m.sent) != 0 {
+		t.Fatalf("sent=%v err=%q mails=%d", r.SentAt, r.SendError, len(e.m.sent))
+	}
+}
+
+func TestTickMissingUserRecorded(t *testing.T) {
+	e := newEnv(t)
+	delete(e.st.users, 7)
+	e.tick(17, 28, 0)
+	r := e.st.rems[1]
+	if r.SentAt == nil || r.SendError == "" || len(e.m.sent) != 0 {
+		t.Fatalf("sent=%v err=%q mails=%d", r.SentAt, r.SendError, len(e.m.sent))
+	}
+}
+
+type slowMailer struct {
+	release chan struct{}
+	done    atomic.Bool
+}
+
+func (m *slowMailer) Send(context.Context, string, string, string, string) error {
+	<-m.release
+	m.done.Store(true)
+	return nil
+}
+
+func TestRunJoinsInFlightSends(t *testing.T) {
+	e := newEnv(t)
+	sm := &slowMailer{release: make(chan struct{})}
+	e.now = time.Date(2026, 10, 30, 17, 28, 0, 0, toronto)
+	s := New(e.st, sm, Config{Loc: toronto, BaseURL: "https://x.test",
+		Now: func() time.Time { return e.now }, Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	ctx, cancel := context.WithCancel(context.Background())
+	returned := make(chan struct{})
+	go func() { s.Run(ctx); close(returned) }()
+	for i := 0; ; i++ {
+		e.st.mu.Lock()
+		sent := e.st.rems[1].SentAt != nil
+		e.st.mu.Unlock()
+		if sent {
+			break
+		}
+		if i > 500 {
+			t.Fatal("never claimed")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	cancel()
+	select {
+	case <-returned:
+		t.Fatal("Run returned with a send in flight")
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(sm.release)
+	select {
+	case <-returned:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not return")
+	}
+	if !sm.done.Load() {
+		t.Fatal("send did not finish")
 	}
 }
