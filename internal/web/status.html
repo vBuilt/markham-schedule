@@ -65,6 +65,14 @@ tr:last-child td { border-bottom: 0; }
 .chart svg { display: block; width: 100%; height: 160px; }
 .chart .axis { fill: var(--ink-2); font-size: 11px; }
 .note { color: var(--ink-2); font-size: 13px; margin-top: 8px; }
+.card .pad { padding: 12px 14px; margin: 0; }
+#watchSec td { white-space: normal; }
+#watchSec td.num, #watchSec th { white-space: nowrap; }
+td .m, .m { color: var(--ink-2); }
+td .g { color: var(--good); font-weight: 700; } td .r { color: var(--bad); font-weight: 700; }
+.linkbtn { font: inherit; color: var(--bar); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-decoration: underline; }
+.linkbtn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.linkbtn:disabled { color: var(--ink-2); cursor: default; }
 </style>
 </head>
 <body>
@@ -72,6 +80,17 @@ tr:last-child td { border-bottom: 0; }
   <header><h1>Scrape status</h1><a href="./" id="back">Back to the calendar</a><span class="note" id="ver"></span></header>
   <section class="hero" id="hero"><div class="state">Loading…</div></section>
   <div class="stats" id="stats"></div>
+
+  <div id="watchSec" hidden>
+    <h2>Sessions you're watching</h2>
+    <div class="card"><div id="watchMine"></div></div>
+    <p class="note" id="watchSum"></p>
+    <p class="note" id="watchErr" role="alert" hidden></p>
+    <div id="watchAll" hidden>
+      <h2>All watches <small>(admin)</small></h2>
+      <div class="card"><div id="watchAllBody"></div></div>
+    </div>
+  </div>
 
   <h2>Latest refresh by program <small id="latestWhen"></small></h2>
   <div class="card"><table id="cats"></table></div>
@@ -221,6 +240,51 @@ tr:last-child td { border-bottom: 0; }
     $("#chart").innerHTML = svg;
   }
 
+  // ---- spot watches: only for a confirmed, signed-in user ----
+  const spotsCell = (left, text) => left === 0 || /^\s*full\s*$/i.test(text || "") ? `<span class="r">Full</span>`
+    : left > 0 ? `<span class="g">${left} left</span>` : esc(text || "–");
+  const sessionWhen = (w) => `${esc(dtFmt.format(new Date(w.start)))}${w.centre ? " · " + esc(w.centre) : ""}`;
+  async function loadWatches() {
+    const u = account && account.user;
+    const sec = $("#watchSec");
+    if (!u || !u.confirmed) { sec.hidden = true; return; }
+    try {
+      const r = await fetch(withTok("/api/watches"));
+      if (!r.ok) throw new Error();
+      const b = await r.json(), ws = b.watches || [], sum = b.summary || {};
+      sec.hidden = false;
+      $("#watchMine").innerHTML = ws.length
+        ? `<table><thead><tr><th>Session</th><th>Now</th><th>Last email</th><th></th></tr></thead><tbody>${ws.map((w) =>
+          `<tr><td>${esc(w.name || "Session")}<br><span class="m">${sessionWhen(w)}</span></td><td>${spotsCell(w.spots_left, w.spots)}</td><td class="m">${w.last_emailed ? esc(dtFmt.format(new Date(w.last_emailed))) : "Never"}</td><td><button type="button" class="linkbtn" data-stop="${esc(w.session_id)}">Stop</button></td></tr>`).join("")}</tbody></table>`
+        : `<p class="note pad">You're not watching any sessions. Open a full session on the calendar to watch it.</p>`;
+      const secs = sum.last_cycle ? Math.max(0, Math.round((Date.now() - new Date(sum.last_cycle)) / 1000)) : null;
+      $("#watchSum").textContent = `Spot checker: ${secs == null ? "no check yet" : `last check ${secs} second${secs === 1 ? "" : "s"} ago`}, ${n(sum.sessions)} session${sum.sessions === 1 ? "" : "s"} watched by ${n(sum.people)} ${sum.people === 1 ? "person" : "people"}.`;
+    } catch { return; }
+    const all = $("#watchAll");
+    if (!u.is_admin) { all.hidden = true; return; }
+    try {
+      const r = await fetch(withTok("/api/watches/all"));
+      if (!r.ok) throw new Error();
+      const ws = (await r.json()).watches || [];
+      all.hidden = false;
+      $("#watchAllBody").innerHTML = ws.length
+        ? `<table><thead><tr><th>Who</th><th>Session</th><th>Now</th><th class="num">Emails sent</th></tr></thead><tbody>${ws.map((w) =>
+          `<tr><td>${w.name ? esc(w.name) + `<br><span class="m">${esc(w.email)}</span>` : esc(w.email)}</td><td>${esc(w.session_name || "Session")}, ${esc(dtFmt.format(new Date(w.start)))}</td><td>${spotsCell(w.spots_left, "")}</td><td class="num">${n(w.emails_sent)}</td></tr>`).join("")}</tbody></table>`
+        : `<p class="note pad">Nobody is watching any sessions.</p>`;
+    } catch { all.hidden = true; }
+  }
+  $("#watchMine").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-stop]"); if (!b) return;
+    const err = $("#watchErr");
+    b.disabled = true; err.hidden = true;
+    try {
+      const r = await fetch(withTok("/api/watches/delete"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: b.dataset.stop }) });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Couldn't stop watching (HTTP ${r.status}).`);
+    } catch (x) { err.textContent = x.message; err.hidden = false; }
+    loadWatches();
+  });
+  setInterval(() => { if (!document.hidden) loadWatches(); }, 30000);
+
   let timer, wasRefreshing = false;
   async function load() {
     clearTimeout(timer);
@@ -232,6 +296,7 @@ tr:last-child td { border-bottom: 0; }
       wasRefreshing = st.refreshing;
       if (st.refreshing) next = 5000;
       renderStats(st, runs); renderCats(runs); renderChart(runs); renderRuns(runs);
+      loadWatches();
     } catch (e) {
       $("#hero").style.setProperty("--state", "var(--bad)");
       $("#hero").innerHTML = `<div class="state">Can't reach the service</div><p>${esc(e.message)}. Check that the container is running on vNas.</p>`;
