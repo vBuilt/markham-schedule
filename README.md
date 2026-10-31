@@ -116,10 +116,10 @@ Use the public link everywhere and the calendar refreshes wherever you are.
 | `POST /api/auth/delete` | `{password}`: deletes your account. Needs sign-in. `204` |
 | `GET /api/watches` | Your active spot watches. Needs a confirmed account |
 | `POST /api/watches` | `{session_id}`: watches a full session. Needs a confirmed account. Limits below |
-| `POST /api/watches/delete` | `{session_id}`: stops watching a session. Needs sign-in |
+| `POST /api/watches/delete` | `{session_id}`: stops watching a session. Needs a confirmed account |
 | `GET /api/watches/all` | Every user's watches, for admins only (`403` otherwise) |
 | `GET /watch/stop?t=…` | The page the "Stop watching" email link opens; asks you to confirm. No sign-in |
-| `POST /watch/stop` | `{t}`: stops that watch. No sign-in |
+| `POST /watch/stop` | Form field `t` (form-encoded, same-origin): stops that watch. No sign-in |
 | `GET /calendar.ics` | The calendar feed described above |
 | `GET /healthz` | `ok` if the process is up |
 
@@ -244,13 +244,13 @@ If a session is full, a signed-in, confirmed user can watch it. The service chec
 (`WATCH_INTERVAL`, at least 30s) and emails the user when a place opens up. Only full sessions
 that haven't started can be watched.
 
-- The email says which session opened and has a **Book it now** link and a **Stop watching** link.
+- The email says which session opened and has a **Stop watching** link, plus a **Book it now** link when the session has a booking link.
   Stop watching works without signing in: it shows a confirm page, and the watch stops when you
   confirm.
 - If the session fills up again and then reopens, the user is emailed again. This repeats until the
   session starts.
-- Limits: 10 watches per user, and 20 distinct sessions watched across all users.
-- A watch is removed after the session is missing from 3 checks in a row, or once it has started.
+- Limits: 10 watches per user. Watches can cover at most 20 different program-and-day combinations across all users. A watch on a session in a combination that is already watched is always allowed; otherwise the service answers "at capacity" (`503`).
+- A watch ends after 3 successful checks that don't find the session (failed or empty checks don't count), or once the session has started.
 - Admins are the emails in `ADMIN_EMAILS`. They can see every user's watches
   (`GET /api/watches/all`); `/api/auth/me` shows `is_admin` for them.
 
@@ -274,8 +274,8 @@ docker run -d --name markham-schedule --restart unless-stopped \
   ghcr.io/vbuilt/markham-schedule:latest
 ```
 
-Replace the `<…>` placeholders with the real values from the steps below. Without the last three
-`-e` lines the service still runs, but emails are only written to the log and the bot check is off.
+Replace the `<…>` placeholders with the real values from the steps below. Without `RESEND_API_KEY` and
+the two `TURNSTILE_*` lines the service still runs, but emails are only written to the log and the bot check is off.
 
 - Host port **8095**, because Krusader already uses 8080 and vnas-dropbox uses 8090.
 - `--user 99:100` (Unraid's nobody:users) lets it write to the appdata folder.
