@@ -41,3 +41,13 @@ func TestWatchUIMarkers(t *testing.T) {
 		}
 	}
 }
+
+func TestWatchStopReferrerPolicy(t *testing.T) {
+	body := watchStop
+	if !strings.Contains(body, `<meta name="referrer" content="same-origin">`) {
+		t.Error("stop page must use referrer policy same-origin")
+	}
+	if strings.Contains(body, `content="no-referrer"`) {
+		t.Error("no-referrer makes the Stop POST send Origin: null and fail CSRF")
+	}
+}

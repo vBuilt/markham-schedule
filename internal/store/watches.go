@@ -93,8 +93,18 @@ func (s *Store) AddWatch(ctx context.Context, userID int64, sessionID string, st
 		if err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx,
-			`INSERT OR IGNORE INTO watch_state(session_id, last_spots) VALUES(?,0)`, sessionID); err != nil {
+		// The first watcher starts from a clean state (session treated as
+		// full), so a stale leftover row can't hide their first opening.
+		var others int
+		if err := tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM watches WHERE session_id=? AND id<>?`, sessionID, id).Scan(&others); err != nil {
+			return err
+		}
+		stateSQL := `INSERT OR IGNORE INTO watch_state(session_id, last_spots) VALUES(?,0)`
+		if others == 0 {
+			stateSQL = `INSERT OR REPLACE INTO watch_state(session_id, last_spots, last_checked_unix, misses, last_error) VALUES(?,0,NULL,0,'')`
+		}
+		if _, err := tx.ExecContext(ctx, stateSQL, sessionID); err != nil {
 			return err
 		}
 		w = Watch{ID: id, UserID: userID, SessionID: sessionID, SessionStart: time.Unix(start.Unix(), 0), Created: time.Unix(now.Unix(), 0)}

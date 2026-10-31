@@ -198,3 +198,27 @@ func TestDeleteUserRemovesWatches(t *testing.T) {
 		t.Fatalf("leftovers %v %v %d %d", ws, st, n, m)
 	}
 }
+
+func TestAddWatchResetsStaleState(t *testing.T) {
+	s, _ := openT(t)
+	ctx := context.Background()
+	start := t0.Add(48 * time.Hour)
+	// Stale row with no watches.
+	s.SaveWatchState(ctx, WatchState{SessionID: "s1", LastSpots: 3, Misses: 2, LastError: "x"})
+	if _, err := s.AddWatch(ctx, 1, "s1", start, t0); err != nil {
+		t.Fatal(err)
+	}
+	st, _ := s.WatchStates(ctx)
+	if got := st["s1"]; got.LastSpots != 0 || got.Misses != 0 || got.LastError != "" {
+		t.Fatalf("state not reset: %+v", got)
+	}
+	// With another watcher present, state is kept.
+	s.SaveWatchState(ctx, WatchState{SessionID: "s1", LastSpots: 3})
+	if _, err := s.AddWatch(ctx, 2, "s1", start, t0); err != nil {
+		t.Fatal(err)
+	}
+	st, _ = s.WatchStates(ctx)
+	if st["s1"].LastSpots != 3 {
+		t.Fatalf("state should be kept: %+v", st["s1"])
+	}
+}

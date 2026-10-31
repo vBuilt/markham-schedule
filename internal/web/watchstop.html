@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="referrer" content="no-referrer">
+<!-- Must stay same-origin, not no-referrer: no-referrer makes browsers send "Origin: null" on the form POST, which the same-origin CSRF check rejects. same-origin still keeps the token out of the Google Fonts requests. -->
+<meta name="referrer" content="same-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Watch stopped · Markham drop-in</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2312303b'/%3E%3Cpath d='M6 12h20M6 18h20M6 24h20' stroke='%23d9443a' stroke-width='2.5' stroke-dasharray='3 2'/%3E%3C/svg%3E">

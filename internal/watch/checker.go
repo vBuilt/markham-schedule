@@ -27,6 +27,7 @@ const (
 const (
 	rediscoverEvery = 10 * time.Minute
 	mailTimeout     = 30 * time.Second
+	notifyTimeout   = 10 * time.Second
 )
 
 // Source is the PerfectMind surface the checker needs.
@@ -363,6 +364,10 @@ func (cy *cycle) calendar(name string) (perfectmind.Calendar, error) {
 // notify emails every watcher of s that a spot opened.
 func (c *Checker) notify(ctx context.Context, s schedule.Session, left int, now time.Time) {
 	log := c.cfg.Log
+	// The opening is already saved; finish queueing its emails even if the
+	// cycle is being cancelled (shutdown).
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), notifyTimeout)
+	defer cancel()
 	ws, err := c.st.WatchersOf(ctx, s.ID)
 	if err != nil {
 		log.Error("list watchers", "session", s.ID, "err", err)

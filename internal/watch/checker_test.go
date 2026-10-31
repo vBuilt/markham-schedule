@@ -543,3 +543,45 @@ func TestCycleNoEmailAfterStartWhenPurgeFails(t *testing.T) {
 		t.Fatalf("emails = %d, Classes calls = %d", e.emails(), e.src.clsCalls)
 	}
 }
+
+// cancelStore cancels the cycle's context right after the new state is saved.
+type cancelStore struct {
+	*store.Store
+	cancel context.CancelFunc
+}
+
+func (c *cancelStore) SaveWatchState(ctx context.Context, st store.WatchState) error {
+	err := c.Store.SaveWatchState(ctx, st)
+	c.cancel()
+	return err
+}
+
+func TestNotifyFinishesAfterCancel(t *testing.T) {
+	e := newEnv(t)
+	bg := context.Background()
+	u2, err := e.st.CreateUser(bg, "second@example.com", "x", t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.st.ConfirmUser(bg, u2.ID); err != nil {
+		t.Fatal(err)
+	}
+	s, err := e.st.SessionByID(bg, e.id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.watch(u2.ID, s)
+	ctx, cancel := context.WithCancel(bg)
+	defer cancel()
+	e.c = New(e.src, &cancelStore{Store: e.st, cancel: cancel}, e.m, e.c.cfg)
+	e.serve("A", "1 spot")
+	e.c.Cycle(ctx)
+	if e.emails() != 2 {
+		t.Fatalf("emails = %d, want 2", e.emails())
+	}
+	for _, w := range e.watches() {
+		if w.EmailsSent != 1 {
+			t.Errorf("watch %d EmailsSent = %d, want 1", w.ID, w.EmailsSent)
+		}
+	}
+}

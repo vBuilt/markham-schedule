@@ -271,6 +271,7 @@ func (h *HTTP) signedIn(f func(http.ResponseWriter, *http.Request, store.User)) 
 	}
 }
 
+// CSRF rejects requests whose Origin or Referer is not this site.
 func (h *HTTP) CSRF(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.sameOrigin(r) {
