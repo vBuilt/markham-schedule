@@ -259,7 +259,9 @@ func (s *Scraper) refresh(ctx context.Context, run *schedule.Run) (schedule.Stat
 	okCount := 0
 	for _, f := range toWrite {
 		res := &results[f.idx]
-		if err := s.st.ReplaceCategory(ctx, res.Name, from, f.sessions); err != nil {
+		// Replace from now, not from the start of the fetch: PerfectMind
+		// leaves out sessions that have already ended today.
+		if err := s.st.ReplaceCategory(ctx, res.Name, now, f.sessions); err != nil {
 			if ctx.Err() != nil {
 				return status, ctx.Err()
 			}

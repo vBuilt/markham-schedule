@@ -302,6 +302,37 @@ func TestRefreshKeepsPastSessionsUntilRetention(t *testing.T) {
 	}
 }
 
+// PerfectMind leaves out sessions that have already ended, even when asked
+// for the whole day, so a later refresh the same day must not drop them.
+func TestRefreshKeepsSessionsThatEndedToday(t *testing.T) {
+	src := twoCats()
+	morning := cls("m", "20261030", "08:00 AM") // 08:00-09:00, already over at t0 (12:00)
+	evening := cls("e", "20261030", "07:00 PM") // 19:00-20:00
+	src.classes["A"] = append(src.classes["A"], morning, evening)
+	s, st, clk := setup(t, src)
+	if _, err := s.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if count(t, st) != 5 {
+		t.Fatalf("run 1 count=%d", count(t, st))
+	}
+	clk.Add(9 * time.Hour) // 21:00: both have ended and the city no longer returns them
+	src.mu.Lock()
+	src.classes["A"] = src.classes["A"][:2]
+	src.mu.Unlock()
+	if _, err := s.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	ss, _ := st.Sessions(context.Background(), schedule.Filter{})
+	names := []string{}
+	for _, x := range ss {
+		names = append(names, x.Name)
+	}
+	if len(ss) != 5 {
+		t.Fatalf("today's ended sessions dropped: %v", names)
+	}
+}
+
 func TestRefreshBusy(t *testing.T) {
 	src := twoCats()
 	src.block = make(chan struct{})
